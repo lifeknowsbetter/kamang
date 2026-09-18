@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """주간 스크리닝 실행기.
 
-  python run.py                      # 엔카만 (기본)
-  python run.py --source both        # 엔카 + 차차차 교차대조
+  python run.py                      # 엔카 + 차차차 (기본)
+  python run.py --source encar       # 엔카만 (완전 검증만 필요할 때)
   python run.py --out report.md      # 파일로 저장
   python run.py --json out.json      # 원자료 저장
 """
@@ -24,7 +24,7 @@ def _progress(label):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", choices=["encar", "ccc", "both"], default="encar")
+    ap.add_argument("--source", choices=["encar", "ccc", "both"], default="both")
     ap.add_argument("--out", help="알림 메시지를 저장할 파일")
     ap.add_argument("--json", dest="json_out", help="통과 매물 원자료를 저장할 파일")
     ap.add_argument("--quiet", action="store_true")
