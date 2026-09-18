@@ -3,7 +3,7 @@ import datetime
 
 from . import config as C
 from . import rules
-from .http import get_json, quote
+from .http import get_json, map_parallel, quote
 
 SEARCH = "https://api.encar.com/search/car/list/general"
 INSPECTION = "https://api.encar.com/v1/readside/inspection/vehicle/{}"
@@ -68,6 +68,19 @@ def enrich(car_id, listing, today=None):
     if not insp:
         return None
     master = insp.get("master") or {}
+
+    # 진단 API만으로 탈락이 확정되면 나머지 두 호출을 아낀다.
+    # 실질 경과일은 max(점검, 광고)이므로 점검일만으로 이미 초과면 광고일은 볼 필요가 없다.
+    insp_age = _days_since(master.get("registrationDate"), today)
+    if master.get("accdient") is not False or (insp_age is not None and insp_age > C.MAX_LISTING_AGE_DAYS):
+        return {
+            "source": "encar", "id": car_id, "url": DETAIL_URL.format(car_id),
+            "model": listing.get("Model"), "badge": listing.get("Badge"),
+            "price": int(listing["Price"]), "mileage": int(listing["Mileage"]),
+            "accident_free": master.get("accdient") is False,
+            "listing_age_days": insp_age, "early_exit": True,
+        }
+
     rec = get_json(RECORD.format(car_id), referer=REFERER) or {}
     manage = (get_json(VEHICLE.format(car_id), referer=REFERER) or {}).get("manage") or {}
 
@@ -75,7 +88,6 @@ def enrich(car_id, listing, today=None):
     model_yyyymm = year[:6]
     mileage = int(listing["Mileage"])
 
-    insp_age = _days_since(master.get("registrationDate"), today)
     ad_age = _days_since(manage.get("firstAdvertisedDateTime"), today)
     ages = [a for a in (insp_age, ad_age) if a is not None]
     # 재등록 시 두 날짜가 따로 리셋되므로 세탁되지 않은 쪽(더 오래된 값)을 쓴다.
@@ -132,16 +144,29 @@ def enrich(car_id, listing, today=None):
     return car
 
 
-def collect(today=None, progress=None):
+def collect(today=None, progress=None, workers=5):
     """검색 → 상세 검증까지 수행해 (통과 목록, 탈락 사유 dict)를 반환."""
     listings = search_all()
-    passed, dropped = [], {}
-    for i, (car_id, listing) in enumerate(listings.items(), 1):
-        if progress:
-            progress(i, len(listings), car_id)
+    items = list(listings.items())
+    done = [0]
+
+    def work(item):
+        car_id, listing = item
         car = enrich(car_id, listing, today)
+        done[0] += 1
+        if progress:
+            progress(done[0], len(items), car_id)
+        return car_id, car
+
+    passed, dropped = [], {}
+    for car_id, car in map_parallel(work, items, workers=workers):
         if car is None:
             continue  # 중복 등록 Id
+        if car.get("early_exit"):
+            # 나머지 API를 부르지 않았으므로 확정된 사유만 기록한다.
+            dropped[car_id] = (car, ["사고이력" if not car["accident_free"]
+                                     else f"경과 {car['listing_age_days']}일"])
+            continue
         fails = rules.evaluate(car, today)
         if fails:
             dropped[car_id] = (car, fails)

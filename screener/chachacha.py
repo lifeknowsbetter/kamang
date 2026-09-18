@@ -10,7 +10,7 @@ import datetime
 import re
 
 from . import config as C
-from .http import get
+from .http import get, map_parallel
 
 LIST = "https://www.kbchachacha.com/public/search/list.empty"
 DETAIL = "https://www.kbchachacha.com/public/car/detail.kbc?carSeq={}"
@@ -124,14 +124,21 @@ def enrich(seq, listing, today=None):
     return car
 
 
-def collect(progress=None, today=None):
+def collect(progress=None, today=None, workers=3):
+    """차차차는 봇 감지가 있어 엔카보다 보수적으로 병렬화한다."""
     listings = search_all()
-    out = []
-    for i, (seq, listing) in enumerate(listings.items(), 1):
+    items = list(listings.items())
+    done = [0]
+
+    def work(item):
+        seq, listing = item
+        car = enrich(seq, listing, today)
+        done[0] += 1
         if progress:
-            progress(i, len(listings), seq)
-        out.append(enrich(seq, listing, today))
-    return out
+            progress(done[0], len(items), seq)
+        return car
+
+    return map_parallel(work, items, workers=workers)
 
 
 def match_to_encar(ccc_cars, encar_cars, km_tolerance=150):

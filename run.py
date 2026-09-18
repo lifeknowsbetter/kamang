@@ -9,6 +9,7 @@
 import argparse
 import datetime
 import json
+import os
 import sys
 
 from screener import chachacha, encar, report, rules
@@ -27,6 +28,8 @@ def main():
     ap.add_argument("--source", choices=["encar", "ccc", "both"], default="both")
     ap.add_argument("--out", help="알림 메시지를 저장할 파일")
     ap.add_argument("--json", dest="json_out", help="통과 매물 원자료를 저장할 파일")
+    ap.add_argument("--state", default=".screener_state.json",
+                    help="지난주 결과를 기억해 신규 매물을 표시한다")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
@@ -50,8 +53,22 @@ def main():
                     and c["listing_age_days"] <= rules.C.MAX_LISTING_AGE_DAYS]
         print(f"차차차: {len(ccc)}건 수집 / 전용 후보 {len(ccc_only)}건", file=sys.stderr)
 
-    message = report.render(passed, ccc_only=ccc_only, dropped=dropped)
+    previous_ids = []
+    if args.state and os.path.exists(args.state):
+        try:
+            with open(args.state, encoding="utf-8") as f:
+                previous_ids = json.load(f).get("passed_ids", [])
+        except (OSError, ValueError):
+            previous_ids = []   # 상태 파일이 깨져도 실행은 계속한다
+
+    message = report.render(passed, ccc_only=ccc_only, dropped=dropped,
+                            previous_ids=previous_ids, today=today)
     print(message)
+
+    if args.state:
+        with open(args.state, "w", encoding="utf-8") as f:
+            json.dump({"date": today.isoformat(),
+                       "passed_ids": [c["id"] for c in passed]}, f, ensure_ascii=False)
 
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
