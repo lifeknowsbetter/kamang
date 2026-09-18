@@ -2,4 +2,3 @@ __pycache__/
 *.pyc
 report.md
 raw.json
-.screener_state.json
