@@ -3,7 +3,7 @@ import datetime
 
 from . import config as C
 
-GROUP_ICON = {"아반떼": "🚙", "쏘나타": "🚗", "그랜저": "🚘"}
+GROUP_ICON = {"코나": "🚐", "아이오닉": "🔌", "아반떼": "🚙", "쏘나타": "🚗"}
 
 
 def _group_index(model_name):
