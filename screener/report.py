@@ -198,7 +198,7 @@ def render(cars, ccc_only=None, dropped=None, previous_ids=None, today=None):
               f"{C.MAX_MILEAGE_KM:,}km 이하 · 등록 2개월 이내 · 사고/렌트 이력 없음 · "
               f"보험 피해 {C.MAX_DAMAGE_WON // 10000:,}만원 이하_",
               "",
-              "_배터리 보증은 10년/20만km 가정입니다. 실제 조건과 중고 승계 여부는 "
+              "_배터리 보증은 10년/10만km 기준입니다. 실제 조건과 중고 승계 여부는 "
               "차대번호로 제조사 서비스센터 확인이 필요합니다._"]
     return "\n".join(lines)
 
