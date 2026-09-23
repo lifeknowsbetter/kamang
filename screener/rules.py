@@ -41,14 +41,23 @@ def classify_rent(current_use_code, avg_km_per_year, owner_changes):
     return "unknown"
 
 
-def battery_warranty_left(first_registration, mileage_km, today=None):
+def battery_warranty_terms(model_name):
+    """모델에 적용되는 (보증 년수, 보증 km). 예외 모델은 config에서 덮어쓴다."""
+    for key, terms in C.BATTERY_WARRANTY_OVERRIDES.items():
+        if key in (model_name or ""):
+            return terms
+    return C.BATTERY_WARRANTY_YEARS, C.BATTERY_WARRANTY_KM
+
+
+def battery_warranty_left(first_registration, mileage_km, today=None, model_name=None):
     """고전압 배터리 보증 잔여를 (년, 제약요인)으로 반환. 기간/주행거리 중 먼저 닿는 쪽."""
     today = today or datetime.date.today()
+    warranty_years, warranty_km = battery_warranty_terms(model_name)
     first = datetime.date.fromisoformat(first_registration)
-    years_left = (first.replace(year=first.year + C.BATTERY_WARRANTY_YEARS) - today).days / 365.25
+    years_left = (first.replace(year=first.year + warranty_years) - today).days / 365.25
     driven_years = max((today - first).days / 365.25, 0.1)
     avg = mileage_km / driven_years
-    km_years_left = (C.BATTERY_WARRANTY_KM - mileage_km) / avg if avg > 0 else 99.0
+    km_years_left = (warranty_km - mileage_km) / avg if avg > 0 else 99.0
     if years_left <= km_years_left:
         return years_left, "기간"
     return km_years_left, "주행거리"

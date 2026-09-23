@@ -139,7 +139,8 @@ def enrich(car_id, listing, today=None):
         ],
     }
     if first_date:
-        left, binding = rules.battery_warranty_left(first_date, mileage, today)
+        left, binding = rules.battery_warranty_left(first_date, mileage, today,
+                                                    model_name=listing.get("Model"))
         car["battery_years_left"], car["battery_binding"] = left, binding
     return car
 
