@@ -35,6 +35,17 @@ def _age_phrase(days):
     return f"{days // 7}주 전 등록"
 
 
+def battery_phrase(years):
+    """보증 잔여를 사람이 읽는 문구로. 음수는 이미 만료된 것이라 그렇게 적는다."""
+    if years is None:
+        return "확인 불가"
+    if years <= 0:
+        return f"만료됨(약 {abs(years):.1f}년 경과)"
+    if years < 0.5:
+        return f"{years * 12:.0f}개월 남음"
+    return f"{years:.1f}년"
+
+
 def _trim(car):
     return f"{car['model']} {car.get('badge') or ''}".strip()
 
@@ -57,8 +68,11 @@ def warnings_for(car):
     owner = car.get("owner_changes")
     if isinstance(owner, int) and owner >= 3:
         notes.append(f"명의변경 {owner}회로 많음")
-    if (car.get("battery_years_left") or 0) < 2:
-        notes.append(f"배터리 보증 잔여 {car['battery_years_left']:.1f}년 — 교체비 수백만원대 리스크")
+    left = car.get("battery_years_left")
+    if left is not None and left <= 0:
+        notes.append("배터리 보증 이미 만료 — 교체비 수백만원대를 전액 부담해야 함")
+    elif left is not None and left < 2:
+        notes.append(f"배터리 보증 {battery_phrase(left)} — 교체비 수백만원대 리스크")
     if car.get("re_registered"):
         notes.append("재등록 매물 — 실제 체류 기간이 표기보다 길 수 있음")
     avg = car.get("avg_km_per_year") or 0
@@ -102,7 +116,7 @@ def render(cars, ccc_only=None, dropped=None, previous_ids=None, today=None):
         lines += ["---", "", "## 🏆 이번 주 추천", "",
                   f"**{_trim(pick)}** · {pick['year_label']} · {pick['mileage']:,}km · "
                   f"**{pick['price']:,}만원** · {pick['region']}", "",
-                  f"통과 매물 중 배터리 보증 잔여가 **{pick['battery_years_left']:.1f}년**으로 가장 깁니다"
+                  f"통과 매물 중 배터리 보증 잔여가 **{battery_phrase(pick['battery_years_left'])}**으로 가장 깁니다"
                   f"({pick['battery_binding']} 기준). "
                   f"연평균 {pick.get('avg_km_per_year', 0):,}km 주행, "
                   f"명의변경 {pick.get('owner_changes')}회.", ""]
@@ -146,7 +160,9 @@ def render(cars, ccc_only=None, dropped=None, previous_ids=None, today=None):
             lines.append("- 외판 교환·판금 이력 없음")
 
         if car.get("battery_years_left") is not None:
-            lines.append(f"- 🔋 배터리 보증 잔여 **{car['battery_years_left']:.1f}년** "
+            left = car["battery_years_left"]
+            icon = "🔋" if left > 0 else "🪫"
+            lines.append(f"- {icon} 배터리 보증 **{battery_phrase(left)}** "
                          f"({car['battery_binding']} 기준)")
         lines.append(f"- 명의변경 {car.get('owner_changes')}회 · {_age_phrase(car.get('listing_age_days'))}")
 
