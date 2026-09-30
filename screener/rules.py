@@ -94,8 +94,13 @@ def evaluate(car, today=None):
 
     if car.get("has_rent_history"):
         kind = car.get("rent_kind")
-        if not (C.INCLUDE_LONG_TERM_RENT and kind == "long_term"):
-            fails.append("렌트이력" if kind != "long_term" else "장기렌트")
+        if kind == "short_term":
+            fails.append("단기렌터카")
+        elif not C.INCLUDE_LONG_TERM_RENT:
+            fails.append("렌트이력")
+        elif kind != "long_term":
+            # 장기·단기를 가릴 근거가 부족한 경우는 보수적으로 제외한다.
+            fails.append("렌트이력 구분불가")
 
     dmg = car.get("damage_won")
     if dmg is None:
@@ -103,10 +108,10 @@ def evaluate(car, today=None):
     elif dmg > C.MAX_DAMAGE_WON:
         fails.append(f"피해 {dmg // 10000}만")
 
+    # 보험이력 공백은 판정에 쓰지 않는다 (config 주석 참고). None이면 비활성.
     gap = car.get("insurance_gap_months")
-    if gap is None:
-        fails.append("보험공백 확인불가")
-    elif gap > C.MAX_INSURANCE_GAP_MONTHS:
+    if C.MAX_INSURANCE_GAP_MONTHS is not None and gap is not None \
+            and gap > C.MAX_INSURANCE_GAP_MONTHS:
         fails.append(f"보험공백 {gap}개월")
 
     lag = car.get("history_lag_months") or 0

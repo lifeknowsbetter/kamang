@@ -3,7 +3,7 @@ import datetime
 
 from . import config as C
 
-GROUP_ICON = {"코나": "🚐", "아이오닉": "🔌", "아반떼": "🚙", "쏘나타": "🚗"}
+GROUP_ICON = {"코나": "🚐", "아이오닉": "🔌", "아반떼": "🚙", "쏘나타": "🚗", "그랜저": "🚘"}
 
 
 def _group_index(model_name):
@@ -136,16 +136,24 @@ def render(cars, ccc_only=None, dropped=None, previous_ids=None, today=None):
             lines += [f"### {GROUP_ICON.get(group, '')} {group}", ""]
 
         flag = " 🆕" if car["id"] in new_ids else ""
+        if car.get("has_rent_history"):
+            flag += " 🏷️장기렌트"
         lines.append(f"**{_trim(car)}**{flag}")
         lines.append(f"{car['year_label']} · {car['mileage']:,}km "
                      f"(연평균 {car.get('avg_km_per_year', 0):,}km) · "
                      f"**{car['price']:,}만원** · {car['region']}")
         lines.append("")
 
-        checks = ["사고이력 없음", "렌트이력 없음"]
+        checks = ["사고이력 없음"]
+        checks.append("렌트이력 있음(장기렌트 추정)" if car.get("has_rent_history")
+                      else "렌트이력 없음")
         gap = car.get("insurance_gap_months")
-        checks.append("보험이력 연속" if not gap else f"보험공백 {gap}개월")
+        if gap:
+            checks.append(f"개인보험 공백 {gap}개월")
         lines.append("- ✅ " + " / ".join(checks))
+        if car.get("has_rent_history"):
+            lines.append(f"- 🏷️ 대여용→자가용 전환 · 연평균 {car.get('avg_km_per_year', 0):,}km "
+                         f"(렌트 기간 사고도 카히스토리에 기록됨)")
 
         dmg = car.get("damage_won") or 0
         if dmg:
