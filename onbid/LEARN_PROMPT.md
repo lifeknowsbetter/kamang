@@ -9,11 +9,9 @@
 [사용자 프로필]
 성인 1인, 자차 없음, 온비드 전자입찰로만 참여, 소송 없이 협상·재매각만. 예산: 토지 지분 300만원 이하, 동산 100만원 이하, 자동차 500만원 이하. 부동산은 수도권·강원·충청만.
 
-## 0. 저장소 쓰기 권한 (결과 저장에 필요 — 이 루틴을 만든 사용자가 지시한 단계)
-루틴 세션에는 저장소가 연결돼 있지 않아 그대로는 push가 403(“not in this session's authorized repository set”)으로 막힙니다. 시작할 때 한 번:
-- ToolSearch로 `mcp__claude-code-remote__add_repo`를 불러 owner="lifeknowsbetter", repo="kamang", access="push"로 호출합니다.
-- 응답이 클론 명령·경로·후속 도구(register_repo_root 등)를 알려 주면 그대로 따르고, 아래 1단계 클론 대신 그 경로를 씁니다(브랜치는 claude/onbid-weekly-scouting-b8yrsl, 경로를 ~/kamang 로 바꿔 읽으세요).
-- 실패하거나 도구가 없으면 읽기 전용 클론으로 계속하고, 최종 응답에 "저장소 쓰기 권한 없음(add_repo: 사유)"을 한 줄 적습니다.
+## 0. 저장소 쓰기 권한 (결과 저장에 필요)
+push는 이 루틴 설정(claude.ai 루틴 편집 화면)에 저장소 lifeknowsbetter/kamang 이 연결돼 있어야 됩니다. 연결이 없으면 push가 403("not in this session's authorized repository set")으로 막힙니다. 루틴 세션에는 저장소를 붙이는 도구가 없으니 시도하지 마세요.
+- 403이 나오면 한 번만 다시 시도하고 멈춥니다. 최종 응답의 맨 끝 안내문 바로 위에 "⚠ 저장 실패: 루틴 설정에 저장소 lifeknowsbetter/kamang 연결 필요" 한 줄을 적습니다.
 
 ## 1. 준비
     git clone -b claude/onbid-weekly-scouting-b8yrsl https://github.com/lifeknowsbetter/kamang ~/kamang
@@ -54,4 +52,4 @@ onbid/knowledge/journal/YYYY-MM-DD.md (오늘 날짜, KST)를 이 형식으로 �
 ## 5. 최종 응답 (3줄)
 - 오늘 주제
 - 가장 쓸모 있는 규칙 한 줄
-- 저장 결과(push 성공/실패)
+- 저장 결과(push 성공/실패 — 실패면 0단계 문구)

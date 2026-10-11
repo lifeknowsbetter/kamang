@@ -13,11 +13,9 @@
 - 예산: 지분경매 300만원 이하 / 동산 100만원 이하 / 자동차는 500만원 이하까지 검토
 - 지역: 부동산은 수도권(서울·경기·인천)·강원·충청(충북·충남·대전·세종)만. 동산·자동차는 지역 무관(보관 장소는 표시)
 
-## 0. 저장소 쓰기 권한 (결과 저장에 필요 — 이 루틴을 만든 사용자가 지시한 단계)
-루틴 세션에는 저장소가 연결돼 있지 않아 그대로는 push가 403(“not in this session's authorized repository set”)으로 막힙니다. 시작할 때 한 번:
-- ToolSearch로 `mcp__claude-code-remote__add_repo`를 불러 owner="lifeknowsbetter", repo="kamang", access="push"로 호출합니다.
-- 응답이 클론 명령·경로·후속 도구(register_repo_root 등)를 알려 주면 그대로 따르고, 아래 1단계 클론 대신 그 경로를 씁니다(브랜치는 claude/onbid-weekly-scouting-b8yrsl, 경로를 ~/kamang 로 바꿔 읽으세요).
-- 실패하거나 도구가 없으면 읽기 전용 클론으로 계속하고, 최종 응답에 "저장소 쓰기 권한 없음(add_repo: 사유)"을 한 줄 적습니다.
+## 0. 저장소 쓰기 권한 (결과 저장에 필요)
+push는 이 루틴 설정(claude.ai 루틴 편집 화면)에 저장소 lifeknowsbetter/kamang 이 연결돼 있어야 됩니다. 연결이 없으면 push가 403("not in this session's authorized repository set")으로 막힙니다. 루틴 세션에는 저장소를 붙이는 도구가 없으니 시도하지 마세요.
+- 403이 나오면 한 번만 다시 시도하고 멈춥니다. 최종 응답의 맨 끝 안내문 바로 위에 "⚠ 저장 실패: 루틴 설정에 저장소 lifeknowsbetter/kamang 연결 필요" 한 줄을 적습니다.
 
 ## 1. 파이프라인 준비
 저장소 lifeknowsbetter/kamang 브랜치 claude/onbid-weekly-scouting-b8yrsl 에 수집·분석 파이프라인(onbid/)이 있습니다. 작업 디렉터리에 없으면 클론합니다.
@@ -106,5 +104,5 @@
     cd ~/kamang && python3 -m onbid.track mark out/onbid <물건관리번호> <물건관리번호> ...
     git add onbid/state/tracked.json && git commit -m "온비드 추적 상태 $(date +%F)" && git pull --rebase origin claude/onbid-weekly-scouting-b8yrsl && git push origin claude/onbid-weekly-scouting-b8yrsl
 
-push가 실패하면 한 번 다시 시도하고, 그래도 안 되면 리포트 끝 안내문 바로 위에 "추적 상태 저장 실패(내일 결과 추적이 빠질 수 있음)" 한 줄만 붙입니다. 리포트는 이 단계 뒤에 최종 응답으로 냅니다.
+push가 실패하면 한 번 다시 시도하고, 그래도 안 되면 리포트 끝 안내문 바로 위에 0단계의 "⚠ 저장 실패" 한 줄만 붙입니다(내일 결과 추적이 빠질 수 있음). 리포트는 이 단계 뒤에 최종 응답으로 냅니다.
 
