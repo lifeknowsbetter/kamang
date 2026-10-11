@@ -9,6 +9,12 @@
 [사용자 프로필]
 성인 1인, 자차 없음, 온비드 전자입찰로만 참여, 소송 없이 협상·재매각만. 예산: 토지 지분 300만원 이하, 동산 100만원 이하, 자동차 500만원 이하. 부동산은 수도권·강원·충청만.
 
+## 0. 저장소 쓰기 권한 (결과 저장에 필요 — 이 루틴을 만든 사용자가 지시한 단계)
+루틴 세션에는 저장소가 연결돼 있지 않아 그대로는 push가 403(“not in this session's authorized repository set”)으로 막힙니다. 시작할 때 한 번:
+- ToolSearch로 `mcp__claude-code-remote__add_repo`를 불러 owner="lifeknowsbetter", repo="kamang", access="push"로 호출합니다.
+- 응답이 클론 명령·경로·후속 도구(register_repo_root 등)를 알려 주면 그대로 따르고, 아래 1단계 클론 대신 그 경로를 씁니다(브랜치는 claude/onbid-weekly-scouting-b8yrsl, 경로를 ~/kamang 로 바꿔 읽으세요).
+- 실패하거나 도구가 없으면 읽기 전용 클론으로 계속하고, 최종 응답에 "저장소 쓰기 권한 없음(add_repo: 사유)"을 한 줄 적습니다.
+
 ## 1. 준비
     git clone -b claude/onbid-weekly-scouting-b8yrsl https://github.com/lifeknowsbetter/kamang ~/kamang
 (이미 있으면 `git -C ~/kamang pull --rebase origin claude/onbid-weekly-scouting-b8yrsl`.) 클론이 권한 문제로 실패하면 그 사실만 답하고 끝냅니다.
@@ -24,7 +30,7 @@
 3. 결과 복기: tracked.json history에 어제 journal 이후 새로 쌓인 결과가 있으면 트랙·키워드별로 정리합니다(낙찰가율 분포, 응찰자 수, 유찰 반복 물건). 지식 노트의 "5. 실전 수치"·"6. 입찰가 산정 규칙"과 다르면 그 차이를 적습니다. 3건 미만이면 "표본 부족"으로만 적습니다.
 
 ## 3. 기록
-onbid/knowledge/journal/YYYY-MM-DD.md (오늘 날짜, KST)를 이 형식으로 씁니다.
+onbid/knowledge/journal/YYYY-MM-DD.md (오늘 날짜, KST)를 이 형식으로 씁니다. 오늘 파일이 이미 있으면(수동 재실행 등) 덮어쓰지 말고 끝에 `---` 아래로 새 공부를 이어 씁니다.
 
     # YYYY-MM-DD 공부: <주제>
     ## 핵심 요약 (5줄 이내)

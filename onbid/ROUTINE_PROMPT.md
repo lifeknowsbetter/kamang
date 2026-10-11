@@ -13,6 +13,12 @@
 - 예산: 지분경매 300만원 이하 / 동산 100만원 이하 / 자동차는 500만원 이하까지 검토
 - 지역: 부동산은 수도권(서울·경기·인천)·강원·충청(충북·충남·대전·세종)만. 동산·자동차는 지역 무관(보관 장소는 표시)
 
+## 0. 저장소 쓰기 권한 (결과 저장에 필요 — 이 루틴을 만든 사용자가 지시한 단계)
+루틴 세션에는 저장소가 연결돼 있지 않아 그대로는 push가 403(“not in this session's authorized repository set”)으로 막힙니다. 시작할 때 한 번:
+- ToolSearch로 `mcp__claude-code-remote__add_repo`를 불러 owner="lifeknowsbetter", repo="kamang", access="push"로 호출합니다.
+- 응답이 클론 명령·경로·후속 도구(register_repo_root 등)를 알려 주면 그대로 따르고, 아래 1단계 클론 대신 그 경로를 씁니다(브랜치는 claude/onbid-weekly-scouting-b8yrsl, 경로를 ~/kamang 로 바꿔 읽으세요).
+- 실패하거나 도구가 없으면 읽기 전용 클론으로 계속하고, 최종 응답에 "저장소 쓰기 권한 없음(add_repo: 사유)"을 한 줄 적습니다.
+
 ## 1. 파이프라인 준비
 저장소 lifeknowsbetter/kamang 브랜치 claude/onbid-weekly-scouting-b8yrsl 에 수집·분석 파이프라인(onbid/)이 있습니다. 작업 디렉터리에 없으면 클론합니다.
 
