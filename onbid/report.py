@@ -115,7 +115,8 @@ def block_A(i, it, today):
     if it.get("favor_flags"):
         L.append(f"  - 플래그: {', '.join(it['favor_flags'])} → 지분 되팔기 전략에 유리한 신호")
     kv = it.get("kv", {})
-    L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:120]}」")
+    L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:120]}」"
+             + (" → 자연림 기재(그냥 산일 가능성)" if it.get("natural_hint") else ""))
     L.append("- 📷 사진·도면 판단: ⟪감정평가서 현장사진·지적도·위성사진을 보고: 그냥 산(자연림)인지 / 관리된 땅(정리·경작·포장·건물·도로 이용)인지, 진입로·경사·분묘·경계 표식 등⟫")
     L += _media_lines(it)
     L.append(f"- 종합 리스크: **{it['grade']}**")

@@ -91,7 +91,7 @@ def select_B(search):
     for k, v in g.items():
         r = v["row"]
         nm = r.get("onbidCltrNm") or ""
-        cat_hit = any(h in (r.get("ctgrFullNm") or "") for h in C.MVAST_CATEGORY_HINTS)
+        cat_hit = any(h in (r.get("ctgrFullNm") or "") for h in C.MVAST_CATEGORY_ONLY)
         kw_hit = re.search(C.MVAST_KEYWORDS, nm, re.I) and not re.search(C.MVAST_EXCLUDE, nm)
         if (cat_hit and not re.search(C.MVAST_EXCLUDE, nm)) or kw_hit:
             v["score"] = _mvast_score(r)
@@ -105,13 +105,16 @@ def select_B(search):
     return hits[:C.DETAIL_B], stats, hits
 
 
+FUELS = (("가솔린+전기", "하이브리드"), ("하이브리드", "하이브리드"), ("경유", "경유"), ("디젤", "경유"),
+         ("휘발유", "휘발유"), ("가솔린", "휘발유"), ("LPG", "LPG"), ("수소", "수소"), ("전기", "전기"))
+
+
 def car_fuel(row, kv=None):
-    s = " ".join(filter(None, [row.get("carFuelKindCd"), row.get("fuelContDsvlmNm"), row.get("onbidCltrNm"),
-                               (kv or {}).get("연료")]))
-    for k, v in (("경유", "경유"), ("디젤", "경유"), ("휘발유", "휘발유"), ("가솔린+전기", "하이브리드"), ("하이브리드", "하이브리드"),
-                 ("가솔린", "휘발유"), ("LPG", "LPG"), ("수소", "수소"), ("전기", "전기")):
-        if k in s:
-            return v
+    """상세 화면 연료 → 목록 연료코드 → 배기량 문구 → 물건명 순으로 믿는다."""
+    for s in ((kv or {}).get("연료"), row.get("carFuelKindCd"), row.get("fuelContDsvlmNm"), row.get("onbidCltrNm")):
+        for k, v in FUELS:
+            if s and k in s:
+                return v
     return "미상"
 
 
@@ -226,8 +229,11 @@ def build_A(items, today):
         cur = next((s for s in sched if s["no"].split("/")[0] == (it.get("round") or "").split("/")[0]), None)
         nxt = next_round(sched, it.get("round"))
         ratio = _share_ratio((it.get("area") or {}).get("share_note"))
+        # 감정평가서 '이용상태'가 자연림·임야 상태면 그냥 산일 가능성이 크다(사진 판단 전 1차 힌트)
+        natural = bool(re.search(r"자연림|자염림|임야\s*상태|임야상태|토지임야|잡목|산림|^\s*임야\.?\s*$",
+                                 it["kv"].get("이용상태", "")))
         out.append({
-            **it, "grade": g, "basis": b,
+            **it, "grade": g, "basis": b, "natural_hint": natural,
             "favor_flags": [f for f in FAVOR if f in text],
             "share_ratio": ratio,
             "current_round": cur, "next_round": nxt,
@@ -235,7 +241,8 @@ def build_A(items, today):
         })
     order = {"낮음": 0, "중간": 1, "높음": 2}
     cls = {"우선": 0, "기타토지": 1, "농지": 2, "건물": 3}
-    out.sort(key=lambda x: (order[x["grade"]], cls.get(x["land_class"], 9), x.get("price") or 0))
+    # 리스크 → (같은 등급 안에서) 실제 이용 중인 땅 먼저 → 지목 → 가격
+    out.sort(key=lambda x: (order[x["grade"]], x["natural_hint"], cls.get(x["land_class"], 9), x.get("price") or 0))
     return out
 
 
@@ -247,6 +254,7 @@ def display_name_B(it):
     m = re.search(r"보관\s+(.+)$", name)
     if m:
         name = m.group(1)
+    name = re.sub(r"\S+(국세청|세무서|시청|군청|구청)\s*(\S+\s*)?보관\s*", "", name)   # 묶음 안의 반복된 보관 문구
     model = kv.get("모델명")
     if good(model) and model not in name:
         name = f"{model} {name}"
@@ -265,7 +273,7 @@ def build_B(items):
             flags.append("작동/상태 이상 표기")
         if re.search(r"보증서\s*(없|무)|케이스\s*(없|무)", text):
             flags.append("보증서·케이스 없음")
-        if "일괄" in text or any(int(n) > 1 for n in re.findall(r"(\d+)\s*점", text)):
+        if "일괄" in text or sum(int(n) for n in re.findall(r"(\d+)\s*점", text)) > 1:
             flags.append("여러 점 일괄")
         place = kv.get("보관장소상세") or kv.get("지번") or ""
         if place in ("", "-"):
@@ -292,14 +300,17 @@ def build_C(items):
         m = re.search(r"([\d,]+)\s*cc", kv.get("배기량/배터리") or row.get("fuelContDsvlmNm") or "", re.I)
         if m:
             cc = int(m.group(1).replace(",", ""))
-        text = " ".join([it.get("name") or "", kv.get("기타사항", ""), " ".join(it.get("notes") or []),
-                         " ".join(it.get("notice_head") or [])])
+        own = " ".join([it.get("name") or "", kv.get("기타사항", ""), " ".join(it.get("notes") or [])])
+        notice = " ".join(it.get("notice_head") or [])
+        text = own + " " + notice
         flags = []
         if "폐차" in (it.get("name") or "") or re.search(r"폐차\s*조건", text):
             flags.append("폐차 조건부 매각(되팔기·지원금 불가)")
-        m = re.search(r"[^.。\n]{0,60}(시동\s*(불|안|이 꺼)|운행\s*불|견인|엔진\s*고장|모터.{0,10}고장|부동차|수리견적)[^.。\n]{0,60}", text)
-        if m:
-            flags.append(f"상태 경고 원문: 「{m.group(0).strip()}」")
+        # 물건 자체 설명에서는 '견인'까지, 공고문 본문에서는 상투 문구(견인비 낙찰자 부담 등)를 피해 고장 표현만 본다
+        warn = (re.search(r"[^.。\n]{0,60}(시동\s*(불|안|이 꺼)|운행\s*불|견인\s*필요|엔진\s*고장|모터.{0,10}고장|부동차|수리견적)[^.。\n]{0,60}", own)
+                or re.search(r"[^.。\n]{0,60}(시동\s*(불가|안\s*됨|이 꺼)|운행\s*불가|엔진\s*고장|모터.{0,10}고장|부동차|수리견적)[^.。\n]{0,60}", notice))
+        if warn:
+            flags.append(f"상태 경고 원문: 「{warn.group(0).strip()}」")
         if row.get("cptnMtdNm") == "제한경쟁":
             flags.append("제한경쟁(참가자격 확인 필요)")
         if re.search(r"번호판\s*(없|무|영치)|열쇠\s*(없|무)|키\s*(없|무)", text):

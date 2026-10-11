@@ -171,7 +171,8 @@ def _notes(lines):
     j = _idx(lines, "입찰 전 알아야 할 주요사항")
     if j >= 0:
         ends = [x for x in (_idx(lines, "임대차 정보(감정평가서 및 배분요구서 기준)", j), _idx(lines, "입찰정보", j),
-                            _idx(lines, "등기사항증명서 주요정보", j)) if x > 0]
+                            _idx(lines, "등기사항증명서 주요정보", j), _idx(lines, "권리분석 기초정보 (입찰시작 7일전부터 정보제공)", j),
+                            _idx(lines, "배분요구 및 채권신고현황", j)) if x > 0]
         block = lines[j + 1:min(ends)] if ends else lines[j + 1:j + 30]
         return [l for l in block if l not in KAMCO_NOTE_HEADS]
     return []
