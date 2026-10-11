@@ -36,13 +36,18 @@ python3 -m onbid.track show                              # 추적 현황
 
 ## 루틴
 
-| 루틴 | 시각(KST) | 지시문 | 하는 일 |
+| 루틴 | 시각(KST) | 정식 지시문 | 하는 일 |
 |---|---|---|---|
-| 스크리닝 | 평일 18:48 | `ROUTINE_PROMPT.md` | 파이프라인 실행 → 사진 판단 → 리포트(알림) → 실은 물건 표시·상태 커밋 |
-| 공부 | 매일 16:52 | `LEARN_PROMPT.md` | 주제 큐에서 하나 웹 조사 → `knowledge/journal/날짜.md`, `knowledge/KNOWLEDGE.md` 갱신·커밋 |
+| 스크리닝 `trig_019hZUt3uvmwRpA1jKV8zsaN` | 평일 18:48 | `ROUTINE_PROMPT.md` | 파이프라인 실행 → 사진 판단 → 리포트(알림) → 실은 물건 표시·상태 커밋 |
+| 공부 `trig_01LyZ9EMR2KHo3CS2uARHhgq` | 매일 16:52 | `LEARN_PROMPT.md` | 주제 큐에서 하나 웹 조사 → `knowledge/journal/날짜.md`, `knowledge/KNOWLEDGE.md` 갱신·커밋 |
 
-두 루틴은 같은 브랜치에 서로 다른 파일만 커밋하고, push 전에 `pull --rebase`한다.
-공부 노트의 "규칙 제안"은 사용자가 승인하기 전에는 코드·판정에 반영하지 않는다.
+- 트리거에 저장된 프롬프트는 짧다(절대 규칙 + "저장소를 클론해 정식 지시문을 따르라"). 절차·형식을 바꿀 때는 이 저장소의
+  지시문 파일만 고치면 다음 실행부터 반영된다.
+- 두 루틴은 같은 브랜치에 서로 다른 파일만 커밋하고, push 전에 `pull --rebase`한다.
+- **루틴 세션이 push하려면 claude.ai 루틴 편집 화면에서 저장소 `lifeknowsbetter/kamang`을 연결해야 한다.** 연결이 없으면
+  클론(공개 저장소)은 되지만 push가 403("not in this session's authorized repository set")으로 막히고, 루틴 세션에는
+  저장소를 스스로 붙이는 도구가 없다(2026-10-11 시험에서 확인).
+- 공부 노트의 "규칙 제안"은 사용자가 승인하기 전에는 코드·판정에 반영하지 않는다.
 
 ## 단계
 
