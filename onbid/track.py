@@ -66,14 +66,20 @@ def mark_reported(st, today, mngs):
 
 
 def due(st, now):
-    """개찰일이 지났는데 결과가 확정되지 않은 물건."""
+    """개찰일이 지났는데 결과가 확정되지 않은 물건.
+    유찰된 물건은 다음 회차로 다시 검색되면 개찰일이 갱신된다. 그 전에는 매일 대신 일주일에 한 번만 다시 본다."""
+    week_ago = (datetime.date.fromisoformat(now[:10]) - datetime.timedelta(days=7)).isoformat()
     out = []
     for m, e in st["items"].items():
         if e.get("final"):
             continue
         dl = e.get("open_dt") or e.get("deadline") or ""
-        if dl and dl[:16] <= now:
-            out.append({"mng": m, "type": e.get("type", "0001")})
+        if not dl or dl[:16] > now:
+            continue
+        r = e.get("result") or {}
+        if (r.get("opened") or "")[:16] >= dl[:16] and (e.get("result_checked") or "") > week_ago:
+            continue
+        out.append({"mng": m, "type": e.get("type", "0001")})
     return out
 
 
@@ -84,6 +90,7 @@ def apply_results(st, results, today):
         e = st["items"].get(m)
         if e is None or rows is None:
             continue
+        e["result_checked"] = today
         since = (e.get("first_seen") or "0000")[:10]
         rows = [r for r in rows if (r.get("pbctExctDt") or "")[:10] >= since]
         done = [r for r in rows if r.get("pbctStatNm") not in OPEN_STATES]
@@ -95,7 +102,6 @@ def apply_results(st, results, today):
                "rate": last.get("rateRow1"), "bidders": _money(last.get("totalBid"))}
         if res != e.get("result"):
             e["result"] = res
-            e["result_checked"] = today
             changed.append(m)
         if res["status"] in FINAL:
             e["final"] = True
