@@ -139,19 +139,40 @@ def comp_keyword(track, it):
     return None
 
 
-def comps_summary(rows, exclude=None, limit=5):
-    """낙찰 건만 골라 최근순 요약 + 낙찰가율 중앙값."""
-    noise = re.compile(r"안저|감마|의료|내시경|초음파|CCTV|블랙박스|산업용|측정|실험")
+def _rate(r):
+    """최저가 대비 낙찰가율(%). 응답에 비어 있으면 낙찰가/최저가로 계산."""
+    v = r.get("rateRow1")
+    try:
+        if v not in (None, "", "-") and float(v) > 0:
+            return float(v)
+    except ValueError:
+        pass
+    bid, low = _money(r.get("onbidBidAmt")), _money(r.get("lowstBidPrc"))
+    return round(bid / low * 100, 2) if bid and low else None
+
+
+NOISE = re.compile(r"안저|감마|의료|내시경|초음파|CCTV|블랙박스|산업용|측정|실험|방송|CCU|중계")
+# 여러 물건을 한 번에 파는 묶음은 단품 시세와 비교가 안 된다
+LOT = re.compile(r"등\s*\d+\s*(점|종|대|개|건)|외\s*\d*\s*(점|종|대|개|건)|일괄|[^,]+,[^,]+,")
+
+
+def comps_summary(rows, exclude=None, limit=5, price=None):
+    """낙찰 건만 골라 최근순 요약 + 낙찰가율 중앙값.
+    의료·방송 장비, 여러 물건 묶음, 이번 물건과 최저가가 5배 넘게 차이 나는 건은 뺀다. 낙찰가율이 3건 미만이면 중앙값을 내지 않는다."""
+    def comparable(r):
+        low = _money(r.get("lowstBidPrc"))
+        return not (price and low and not price / 5 <= low <= price * 5)
     sold = [r for r in rows or [] if r.get("pbctStatNm") == "낙찰" and _money(r.get("onbidBidAmt"))
             and r.get("scrnIndctCltrMngNo") != exclude and r.get("dspsMthodCdNm") in (None, "매각")
-            and not noise.search((r.get("onbidCltrNm") or "") + (r.get("ctgrFullNm") or ""))]
+            and not NOISE.search((r.get("onbidCltrNm") or "") + (r.get("ctgrFullNm") or ""))
+            and not LOT.search(r.get("onbidCltrNm") or "") and comparable(r)]
     sold.sort(key=lambda r: r.get("pbctExctDt") or "", reverse=True)
-    rates = [float(r["rateRow1"]) for r in sold if r.get("rateRow1") not in (None, "", "0", "-") and float(r["rateRow1"]) > 0]
+    rates = [x for x in (_rate(r) for r in sold) if x]
     return {
-        "n_sold": len(sold), "n_all": len(rows or []),
-        "median_rate": round(statistics.median(rates), 1) if rates else None,
+        "n_sold": len(sold), "n_all": len(rows or []), "n_rates": len(rates),
+        "median_rate": round(statistics.median(rates), 1) if len(rates) >= 3 else None,
         "examples": [{"date": (r.get("pbctExctDt") or "")[:10], "name": (r.get("onbidCltrNm") or "")[:40],
-                      "lowest": r.get("lowstBidPrc"), "bid": _money(r.get("onbidBidAmt")), "rate": r.get("rateRow1"),
+                      "lowest": _money(r.get("lowstBidPrc")), "bid": _money(r.get("onbidBidAmt")), "rate": _rate(r),
                       "bidders": _money(r.get("totalBid")), "region": r.get("sidoEmd")} for r in sold[:limit]],
     }
 

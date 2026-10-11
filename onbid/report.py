@@ -114,11 +114,12 @@ def comps_line(it):
     if not c["n_sold"]:
         return f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 낙찰 사례 없음"
     def one(e):
-        rate = f"{e['rate']}%, " if e.get("rate") not in (None, "", "0", "-") else ""
+        rate = f"{e['rate']:.0f}%, " if e.get("rate") else ""
         low = f"최저 {e['lowest']:,}→" if e.get("lowest") else ""
         return f"{e['date'][5:]} {e['name'][:22]} {low}낙찰 {e['bid']:,}원({rate}{e['bidders']}명, {e['region']})"
     ex = "; ".join(one(e) for e in c["examples"][:3])
-    return (f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 낙찰 {c['n_sold']}건, 낙찰가율 중앙값 {c['median_rate'] or '-'}% — {ex}")
+    med = f"낙찰가율 중앙값 {c['median_rate']}%" if c.get("median_rate") else "사례 부족(중앙값 없음)"
+    return f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 비슷한 가격대 낙찰 {c['n_sold']}건, {med} — {ex}"
 
 
 def _sched_table(it):

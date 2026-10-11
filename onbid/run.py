@@ -156,7 +156,8 @@ def main():
         changed = track.apply_results(st, res.get("items"), today.isoformat())
         for it in tb[:C.MEDIA_B] + tc[:C.MEDIA_C]:
             if it.get("comp_key"):
-                it["comps"] = track.comps_summary(res["keywords"].get(it["comp_key"]), exclude=it["mng"])
+                it["comps"] = track.comps_summary(res["keywords"].get(it["comp_key"]), exclude=it["mng"],
+                                                  price=it.get("price"))
     tracking = report.tracking_data(st, changed, due_items, res is not None)
     for it in ta + tb + tc:
         e = st["items"].get(it["mng"])
