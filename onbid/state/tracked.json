@@ -1,0 +1,526 @@
+{
+ "history": [],
+ "items": {
+  "2025-11447-001": {
+   "appraisal": 2015920,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=1932438&onbidPbancNo=895313&pbctNo=10069133&pbctCdtnNo=6078830",
+   "name": "경기도 안성시 공도읍 진사리 36-11",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1210000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "A",
+   "type": "0001"
+  },
+  "2025-17736-001": {
+   "appraisal": 2000000,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=1981691&onbidPbancNo=898733&pbctNo=10069252&pbctCdtnNo=6101171",
+   "name": "충청남도 태안군 태안읍 어은리 140-4",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1400000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "A",
+   "type": "0001"
+  },
+  "2025-17765-001": {
+   "appraisal": 4634022,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=1955945&onbidPbancNo=893383&pbctNo=10069360&pbctCdtnNo=6058412",
+   "name": "충청북도 충주시 앙성면 마련리 산11-12",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1854000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-00359-002": {
+   "appraisal": 1853800,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=1966865&onbidPbancNo=899597&pbctNo=10069342&pbctCdtnNo=6132344",
+   "name": "강원특별자치도 횡성군 둔내면 두원리 산25-19",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1484000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-04798-004": {
+   "appraisal": 3827200,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2014121&onbidPbancNo=893342&pbctNo=10069252&pbctCdtnNo=6051629",
+   "name": "충청남도 보령시 웅천읍 관당리 254-7",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1532000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-0900-049704": {
+   "appraisal": 990000,
+   "deadline": "2026-10-13 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0004&onbidCltrno=2058746&onbidPbancNo=907630&pbctNo=10105699&pbctCdtnNo=6227354",
+   "name": "쉐보레(스파크밴) 경형승용995cc (56러1054)",
+   "open_dt": "2026-10-14 10:00:00",
+   "price": 990000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "C",
+   "type": "0002"
+  },
+  "2026-0900-052444": {
+   "appraisal": 900000,
+   "deadline": "2026-10-13 16:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0004&onbidCltrno=2062623&onbidPbancNo=906786&pbctNo=10103736&pbctCdtnNo=6219191",
+   "name": "기아 소형차 프라이드 하이브리드 1399cc",
+   "open_dt": "2026-10-14 11:00:00",
+   "price": 900000,
+   "reported": [],
+   "track": "C",
+   "type": "0002"
+  },
+  "2026-0900-053307": {
+   "appraisal": 1000000,
+   "deadline": "2026-10-15 16:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0004&onbidCltrno=2064108&onbidPbancNo=907120&pbctNo=10104558&pbctCdtnNo=6220686",
+   "name": "기아 경형 승용 모닝 999cc",
+   "open_dt": "2026-10-16 10:00:00",
+   "price": 1000000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "C",
+   "type": "0002"
+  },
+  "2026-09037-002": {
+   "appraisal": 2622000,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2015781&onbidPbancNo=899597&pbctNo=10069342&pbctCdtnNo=6132367",
+   "name": "강원특별자치도 횡성군 횡성읍 학곡리 산107-79",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 2098000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-09272-007": {
+   "appraisal": 1218000,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0007&onbidCltrno=2024815&onbidPbancNo=899581&pbctNo=10069227&pbctCdtnNo=6135207",
+   "name": "순금반지(24K) 1점",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 975000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-09531-001": {
+   "appraisal": 8628000,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2014965&onbidPbancNo=891224&pbctNo=10069342&pbctCdtnNo=6031668",
+   "name": "강원특별자치도 양양군 현북면 장리 산190",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1726000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-1000-054250": {
+   "appraisal": 216000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065371&onbidPbancNo=908129&pbctNo=10106884&pbctCdtnNo=6233515",
+   "name": "금니",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 216000,
+   "reported": [],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054266": {
+   "appraisal": 250000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065401&onbidPbancNo=908129&pbctNo=10106884&pbctCdtnNo=6233526",
+   "name": "티쏘 박스, 밴드 줄임킷트 유/시간정지",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 250000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054269": {
+   "appraisal": 70000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065406&onbidPbancNo=908129&pbctNo=10106884&pbctCdtnNo=6233527",
+   "name": "소니 알파100",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 70000,
+   "reported": [],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054291": {
+   "appraisal": 700000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065443&onbidPbancNo=908129&pbctNo=10106884&pbctCdtnNo=6233538",
+   "name": "구찌 정품스틸시계줄 유/보증서,케이스 없음",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 700000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054336": {
+   "appraisal": 730000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065509&onbidPbancNo=908129&pbctNo=10106884&pbctCdtnNo=6233572",
+   "name": "핸드폰줄(금돼지)",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 730000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054361": {
+   "appraisal": 720000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065535&onbidPbancNo=908129&pbctNo=10106884&pbctCdtnNo=6233574",
+   "name": "금거북이",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 720000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054390": {
+   "appraisal": 85000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065565&onbidPbancNo=908129&pbctNo=10106884&pbctCdtnNo=6233592",
+   "name": "스와로브스키 목걸이",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 85000,
+   "reported": [],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054502": {
+   "appraisal": 800000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065733&onbidPbancNo=908137&pbctNo=10106911&pbctCdtnNo=6234030",
+   "name": "구찌 보증서,케이스 없음/베젤 스크레치/시계정지",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 800000,
+   "reported": [],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054585": {
+   "appraisal": 200000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2065832&onbidPbancNo=908137&pbctNo=10106911&pbctCdtnNo=6234062",
+   "name": "부로바 금장",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 200000,
+   "reported": [],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054596": {
+   "appraisal": 1800000,
+   "deadline": "2026-10-16 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0004&onbidCltrno=2065848&onbidPbancNo=908313&pbctNo=10107414&pbctCdtnNo=6235966",
+   "name": "현대 중형차 이-카운티 3933cc/11.0kwh",
+   "open_dt": "2026-10-19 10:00:00",
+   "price": 1800000,
+   "reported": [],
+   "track": "C",
+   "type": "0002"
+  },
+  "2026-1000-054642": {
+   "appraisal": 1000000,
+   "deadline": "2026-10-13 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0004&onbidCltrno=2065912&onbidPbancNo=907793&pbctNo=10106086&pbctCdtnNo=6229881",
+   "name": "스파크 경형 승용 20구 6148",
+   "open_dt": "2026-10-14 10:00:00",
+   "price": 1000000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "C",
+   "type": "0002"
+  },
+  "2026-1000-054794": {
+   "appraisal": 250000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2066075&onbidPbancNo=908141&pbctNo=10106922&pbctCdtnNo=6234622",
+   "name": "소니 알파 A5100",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 250000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-054838": {
+   "appraisal": 850000,
+   "deadline": "2026-10-23 18:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0012&onbidCltrno=2066119&onbidPbancNo=908141&pbctNo=10106922&pbctCdtnNo=6234660",
+   "name": "해밀턴 자동/보증서없음/케이스 없음",
+   "open_dt": "2026-10-26 12:00:00",
+   "price": 850000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-055226": {
+   "appraisal": null,
+   "deadline": "2026-10-21 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0013&onbidCltrno=2066681&onbidPbancNo=907949&pbctNo=10106496&pbctCdtnNo=6231316",
+   "name": "레노버 노트북",
+   "open_dt": "2026-10-22 10:00:00",
+   "price": 100000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-055527": {
+   "appraisal": 1200000,
+   "deadline": "2026-10-14 23:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0004&onbidCltrno=2067068&onbidPbancNo=908127&pbctNo=10106880&pbctCdtnNo=6236301",
+   "name": "기아 중형차 스포티지 1,995cc",
+   "open_dt": "2026-10-15 09:00:00",
+   "price": 1200000,
+   "reported": [],
+   "track": "C",
+   "type": "0002"
+  },
+  "2026-1000-055726": {
+   "appraisal": 262000,
+   "deadline": "2026-10-15 16:30",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0004&onbidCltrno=2067471&onbidPbancNo=908339&pbctNo=10107472&pbctCdtnNo=6236332",
+   "name": "VITO RMH-749KPE 등 데스크톱컴퓨터, 디지털 인쇄기, 비디오프로젝터",
+   "open_dt": "2026-10-16 11:00:00",
+   "price": 262000,
+   "reported": [],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-055733": {
+   "appraisal": null,
+   "deadline": "2026-10-19 16:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0013&onbidCltrno=2067482&onbidPbancNo=908371&pbctNo=10107522&pbctCdtnNo=6236402",
+   "name": "(주)디프씨 소유 비품(컴퓨터 본체 및 카메라 등)",
+   "open_dt": "2026-10-20 10:00:00",
+   "price": 1000000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-1000-055801": {
+   "appraisal": 3500000,
+   "deadline": "2026-10-22 10:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0004&onbidCltrno=2067610&onbidPbancNo=908455&pbctNo=10107779&pbctCdtnNo=6236817",
+   "name": "현대 중형차 투싼ix 1995cc/184kwh",
+   "open_dt": "2026-10-23 10:00:00",
+   "price": 3500000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "C",
+   "type": "0002"
+  },
+  "2026-11031-004": {
+   "appraisal": 2826250,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2024959&onbidPbancNo=896438&pbctNo=10069360&pbctCdtnNo=6096177",
+   "name": "충청북도 제천시 청풍면 장선리 산14",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1131000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-11773-001": {
+   "appraisal": 2086000,
+   "deadline": "2026-11-11 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2029697&onbidPbancNo=905821&pbctNo=10078955&pbctCdtnNo=6206104",
+   "name": "강원특별자치도 양양군 손양면 하왕도리 산74-7",
+   "open_dt": "2026-11-12 11:00:00",
+   "price": 2086000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-11955-013": {
+   "appraisal": 796000,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0003&cltrPrptDivCd=0007&onbidCltrno=2049707&onbidPbancNo=902192&pbctNo=10069252&pbctCdtnNo=6159455",
+   "name": "금팔지 1점, 팔찌 1점",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 796000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "B",
+   "type": "0003"
+  },
+  "2026-12371-001": {
+   "appraisal": 4788333,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2028206&onbidPbancNo=896438&pbctNo=10069360&pbctCdtnNo=6096182",
+   "name": "충청북도 청주시 상당구 문의면 구룡리 산1-5",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1916000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-12557-001": {
+   "appraisal": 1738393,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2029653&onbidPbancNo=897327&pbctNo=10069252&pbctCdtnNo=6101262",
+   "name": "충청남도 공주시 산성동 74-37",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1218000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-14452-001": {
+   "appraisal": 1980000,
+   "deadline": "2026-10-14 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2036497&onbidPbancNo=902004&pbctNo=10069342&pbctCdtnNo=6152842",
+   "name": "강원특별자치도 평창군 진부면 송정리 산229-11",
+   "open_dt": "2026-10-15 11:00:00",
+   "price": 1980000,
+   "reported": [],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-15819-001": {
+   "appraisal": 2342889,
+   "deadline": "2026-10-28 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0001&cltrPrptDivCd=0007&onbidCltrno=2044225&onbidPbancNo=903794&pbctNo=10074317&pbctCdtnNo=6182819",
+   "name": "강원특별자치도 고성군 토성면 원암리 365-14",
+   "open_dt": "2026-10-29 11:00:00",
+   "price": 2343000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "A",
+   "type": "0001"
+  },
+  "2026-16401-001": {
+   "appraisal": 3000000,
+   "deadline": "2026-10-28 17:00",
+   "first_seen": "2026-10-11",
+   "last_seen": "2026-10-11",
+   "link": "https://www.onbid.co.kr/op/cltrpbancinf/cltrdtl/CltrDtlController/mvmnCltrDtl.do?cltrScrnGrpCd=0002&cltrPrptDivCd=0007&onbidCltrno=2045119&onbidPbancNo=903784&pbctNo=10074201&pbctCdtnNo=6182064",
+   "name": "경기도 광주시 도척면 방도리 576-2 오토마트 경기동부보관소(22너5972 모하비 2010년식)",
+   "open_dt": "2026-10-29 11:00:00",
+   "price": 3000000,
+   "reported": [
+    "2026-10-11"
+   ],
+   "track": "C",
+   "type": "0002"
+  }
+ }
+}

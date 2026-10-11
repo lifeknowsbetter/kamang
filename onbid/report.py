@@ -55,6 +55,72 @@ def _media_lines(it):
     return out
 
 
+def seen_tag(it, today):
+    """매일 돌기 때문에 같은 물건이 반복된다. 처음 보는 물건인지, 전에 리포트에 실었는지 표시."""
+    sn = it.get("seen")
+    if not sn:
+        return "🆕"
+    rep = [d for d in sn.get("reported") or [] if d < today.isoformat()]
+    if rep:
+        return f"↻ {rep[-1][5:].replace('-', '/')} 보고"
+    return f"검토 {sn['first_seen'][5:].replace('-', '/')}~"
+
+
+def tracking_data(st, changed, due_items, queried):
+    """지난 후보 결과 요약. changed: 이번 실행에서 결과가 새로 확정되거나 바뀐 물건."""
+    items = st["items"]
+    rows = []
+    for m in changed:
+        e = items.get(m, {})
+        rows.append({"mng": m, **{k: e.get(k) for k in ("track", "name", "link", "price", "appraisal", "reported")},
+                     **(e.get("result") or {})})
+    pending = [m for m, e in items.items() if e.get("reported") and not e.get("final")]
+    return {"queried": queried, "due": len(due_items), "changed": rows, "pending_reported": len(pending)}
+
+
+def tracking_section(tr):
+    if not tr:
+        return []
+    L = ["## 🔨 지난 후보 입찰 결과"]
+    if not tr.get("queried"):
+        L.append("(이번에는 입찰결과를 조회하지 못함)" if tr.get("due") else "(개찰이 지난 추적 물건 없음)")
+        return L + [""]
+    ch = tr.get("changed") or []
+    rep = [r for r in ch if r.get("reported")]
+    oth = [r for r in ch if not r.get("reported")]
+    if not ch:
+        L.append(f"새로 나온 결과 없음 (리포트에 실렸던 물건 중 진행 중 {tr.get('pending_reported', 0)}건)")
+    for title, group in (("리포트에 실었던 물건", rep), ("검토만 했던 후보", oth)):
+        if not group:
+            continue
+        L.append(f"**{title}** ({len(group)}건)")
+        for r in group:
+            st = r.get("status")
+            if st in ("낙찰", "낙찰(낙찰후취소)"):
+                body = (f"**{st} {won(r.get('bid'))}** (최저가 대비 {r.get('rate') or '-'}%, 감정가 대비 "
+                        f"{pct(r.get('bid'), r.get('appraisal'))}, 응찰 {r.get('bidders') or '-'}명)")
+            elif st == "유찰":
+                body = f"유찰 ({r.get('round')}회, 최저가 {won(r.get('lowest'))}) — 다음 회차로 넘어감"
+            else:
+                body = st or "-"
+            L.append(f"- [{r.get('name')}]({r.get('link')}) {r['mng']} [{r.get('track')}] — {body}, 개찰 {str(r.get('opened'))[:16]}")
+    return L + [""]
+
+
+def comps_line(it):
+    c = it.get("comps")
+    if not c:
+        return None
+    if not c["n_sold"]:
+        return f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 낙찰 사례 없음"
+    def one(e):
+        rate = f"{e['rate']}%, " if e.get("rate") not in (None, "", "0", "-") else ""
+        low = f"최저 {e['lowest']:,}→" if e.get("lowest") else ""
+        return f"{e['date'][5:]} {e['name'][:22]} {low}낙찰 {e['bid']:,}원({rate}{e['bidders']}명, {e['region']})"
+    ex = "; ".join(one(e) for e in c["examples"][:3])
+    return (f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 낙찰 {c['n_sold']}건, 낙찰가율 중앙값 {c['median_rate'] or '-'}% — {ex}")
+
+
 def _sched_table(it):
     sched = it.get("schedule") or []
     if not sched:
@@ -78,7 +144,7 @@ def block_A(i, it, today):
     area = it.get("area") or {}
     nr, be = it.get("next_round"), it.get("budget_entry")
     ratio = it.get("share_ratio")
-    L = [f"### {CIRCLED[i]} {it.get('name')}",
+    L = [f"### {CIRCLED[i]} {it.get('name')} `{seen_tag(it, today)}`",
          f"- 🔗 [온비드 상세]({it['link']})" + ("" if it.get("link_ok") else " (⚠ 링크 확인 실패 — 물건관리번호로 검색)"),
          f"- 물건관리번호 {it['mng']} / 지목 {area.get('use', '-')} / 지분 {area.get('area', '-')} — {area.get('share_note', '')}"
          + (f" (**{ratio * 100:.1f}%**)" if ratio else ""),
@@ -129,7 +195,7 @@ def block_B_row(it, today):
     name = (it.get("display") or it.get("name") or "")[:40]
     appr = it.get("appraisal")
     price = it.get("price")
-    return (f"| [{name}]({it['link']}) | {it['mng']} | {won(price)}" + (f" (감정 {appr:,})" if appr and appr != price else "")
+    return (f"| [{name}]({it['link']}) `{seen_tag(it, today)}` | {it['mng']} | {won(price)}" + (f" (감정 {appr:,})" if appr and appr != price else "")
             + f" | {dday(it, today)} | ⟪사진 상태판단⟫ | {it.get('org')} / 보관 {it.get('place', '')[:40]}"
             + (f"; {flags}" if flags else "") + " |")
 
@@ -139,7 +205,7 @@ def block_C(i, it, today):
     kv = it.get("kv", {})
     cc = f"{it['cc']:,}cc" if it.get("cc") else "배기량 미상"
     km = f"{it['km']:,}km" if it.get("km") else "주행거리 미상"
-    L = [f"### {CIRCLED[i]} {it.get('name')}",
+    L = [f"### {CIRCLED[i]} {it.get('name')} `{seen_tag(it, today)}`",
          f"- 🔗 [온비드 상세]({it['link']})" + ("" if it.get("link_ok") else " (⚠ 링크 확인 실패)"),
          f"- 물건관리번호 {it['mng']} / {kv.get('제조사', '')} {kv.get('모델명') or kv.get('차종', '')} / {it.get('year')}년식 / "
          f"{it.get('fuel')} / {cc} / {km} / 차량번호 {it.get('plate') or '-'}",
@@ -158,6 +224,9 @@ def block_C(i, it, today):
     if notes:
         L.append("- 유의사항 원문:")
         L += [f"  > {n}" for n in notes]
+    cl = comps_line(it)
+    if cl:
+        L.append(f"- 📈 동종 낙찰: {cl}")
     L.append("- 📷 사진·감정평가표 판단: ⟪외관·실내·계기판(경고등/주행거리)·엔진룸·하부 부식, 감정평가표 체크(시동/작동), 사고이력 → 작동 가능성⟫")
     L += _media_lines(it)
     L.append("- 한줄평: ⟪…⟫")
@@ -168,12 +237,14 @@ def write_draft(out, data):
     today = datetime.date.fromisoformat(data["today"])
     st = data["stats"]
     sa, sb, sc = st["A"], st["B"], st["C"]
-    L = [f"# 📋 온비드 주간 스카우팅 + 권리분석 ({data['today']} 기준) — 초안",
+    L = [f"# 📋 온비드 스카우팅 + 권리분석 ({data['today']} 기준) — 초안",
          f"입찰기간 검색창: {data.get('bid_window')}",
          "",
          "> 작성 지침: ⟪…⟫를 사진·감정평가서를 직접 보고 채운다. Track A는 아래 후보 중 상위 5건, Track B는 10건, "
-         "Track C는 5건만 최종 리포트에 남긴다. 사진상 문제가 드러난 후보는 빼고 다음 후보로 대체한다.",
+         "Track C는 5건만 최종 리포트에 남긴다. 사진상 문제가 드러난 후보는 빼고 다음 후보로 대체한다. "
+         "`🆕`는 처음 본 물건, `↻ MM/DD 보고`는 그날 리포트에 실었던 물건, `검토 MM/DD~`는 후보로만 봤던 물건.",
          "",
+         *tracking_section(data.get("tracking")),
          f"## Track A: 지분경매 (조건 충족 {sa['지분물건']}건 → 권역 내 {sa['권역내(수도권·강원·충청)']}건 → "
          f"권역 내 압류재산 {sa['권역내_압류재산']}건, 상세분석 {sa['상세분석']}건)",
          f"재산유형별 {sa['재산유형별']} / 권역 내 압류재산 지목별 {sa['권역내_압류재산_지목별']}",
@@ -190,9 +261,12 @@ def write_draft(out, data):
           "| 물건명 | 물건관리번호 | 최저입찰가 | 마감일(D-n) | 📷 상태판단 | 주의사항 |", "|---|---|---|---|---|---|"]
     for it in data["B"][:C.MEDIA_B]:
         L.append(block_B_row(it, today))
-    L += ["", "Track B 후보별 사진 자료:"]
+    L += ["", "Track B 후보별 사진 자료·동종 낙찰:"]
     for it in data["B"][:C.MEDIA_B]:
-        L.append(f"- {it['mng']} {(it.get('name') or '')[:30]}")
+        L.append(f"- {it['mng']} {(it.get('display') or it.get('name') or '')[:30]}")
+        cl = comps_line(it)
+        if cl:
+            L.append(f"  - 📈 {cl}")
         L += _media_lines(it)
     L += ["", f"## Track C: 자동차 (매각·최저입찰가 {C.CAR_MAX:,}원 이하 {sc['차량']}건, 연료별 {sc['연료별']}, "
           f"경유 2009년식 이전 {sc['경유_2009년이전']}건, 폐차조건부 {sc['폐차조건부']}건, 상세 {sc['상세분석']}건)", ""]

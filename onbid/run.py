@@ -20,7 +20,7 @@ import urllib.request
 
 from . import analyze as A
 from . import config as C
-from . import media, parse, report
+from . import media, parse, report, track
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 JS = os.path.join(HERE, "js")
@@ -75,6 +75,8 @@ def main():
     ap.add_argument("--workers", type=int, default=5)
     ap.add_argument("--today", help="YYYY-MM-DD (기본: 오늘)")
     ap.add_argument("--no-media", action="store_true")
+    ap.add_argument("--no-results", action="store_true", help="낙찰 결과·동종 낙찰 사례 조회 생략")
+    ap.add_argument("--no-state", action="store_true", help="추적 상태 파일을 저장하지 않음(시험용)")
     args = ap.parse_args()
     today = datetime.date.fromisoformat(args.today) if args.today else datetime.date.today()
     out = args.out
@@ -132,9 +134,41 @@ def main():
             log(f"사진·감정평가서: {it['mng']}")
             it["media"] = media.collect(it, media_dir)
 
+    # 6. 추적: 지난 후보의 낙찰 결과 + 오늘 후보와 같은 종류의 최근 낙찰 사례
+    st = track.load()
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+    due_items = track.due(st, now)
+    keywords = {}
+    for t, items in (("B", tb[:C.MEDIA_B]), ("C", tc[:C.MEDIA_C])):
+        for it in items:
+            kw = track.comp_keyword(t, it)
+            if kw:
+                it["comp_key"] = f"{t}:{kw}"
+                keywords[it["comp_key"]] = {"key": it["comp_key"], "kw": kw, "type": track.TYPE[t],
+                                            "from": (today - datetime.timedelta(days=90)).isoformat()}
+    res, changed = None, []
+    if not args.no_results and (due_items or keywords):
+        log(f"입찰결과 조회: 지난 후보 {len(due_items)}건, 동종 키워드 {len(keywords)}개")
+        res = track.run_results(JS, out, due_items, list(keywords.values()))
+        if res is None:
+            log("입찰결과 조회 실패 — 이번 리포트는 결과 없이 진행")
+    if res:
+        changed = track.apply_results(st, res.get("items"), today.isoformat())
+        for it in tb[:C.MEDIA_B] + tc[:C.MEDIA_C]:
+            if it.get("comp_key"):
+                it["comps"] = track.comps_summary(res["keywords"].get(it["comp_key"]), exclude=it["mng"])
+    tracking = report.tracking_data(st, changed, due_items, res is not None)
+    for it in ta + tb + tc:
+        e = st["items"].get(it["mng"])
+        it["seen"] = {"first_seen": e.get("first_seen"), "reported": e.get("reported") or []} if e else None
+    track.add_candidates(st, today.isoformat(), {"A": ta[:C.MEDIA_A], "B": tb[:C.MEDIA_B], "C": tc[:C.MEDIA_C]})
+    track.prune(st, today.isoformat())
+    if not args.no_state:
+        track.save(st)
+
     data = {"today": today.isoformat(), "bid_window": search["A"].get("bidWindow"),
             "stats": {"A": stats_a, "B": stats_b, "C": stats_c}, "missing_details": missing,
-            "A": ta, "B": tb, "C": tc}
+            "tracking": tracking, "A": ta, "B": tb, "C": tc}
     with open(os.path.join(out, "candidates.json"), "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=1, default=str)
     report.write_draft(out, data)
