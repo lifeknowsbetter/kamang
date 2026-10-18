@@ -84,6 +84,7 @@ async function post(page, url, body) {
         Accept: 'application/json, text/javascript, */*; q=0.01',
       },
       body,
+      signal: AbortSignal.timeout(60000),       // 응답이 멈춘 요청이 전체 수집을 붙잡지 않게 한다(호출부의 재시도 경로를 탄다)
     });
     return r.text();
   }, [url, body]);

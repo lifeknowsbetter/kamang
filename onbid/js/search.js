@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { launch, openSearch, post } = require('./lib');
 
-const [, , outDir, rlstMax = '3000000', mvastMax = '1000000', carMax = '5000000'] = process.argv;
+const [, , outDir, rlstMax = '10000000', mvastMax = '10000000', carMax = '10000000'] = process.argv;
 const ENDPOINT = '/op/cltrpbancinf/cltr/cltrcdtnsrch/CltrCdtnSrchController/srchCltrCdtn.do';
 const PAGE = 100;
 
@@ -31,15 +31,20 @@ async function searchTrack(page, base, t) {
     set('pageIndex', String(pg)); set('firstIndex', String((pg - 1) * PAGE)); set('lastIndex', String(pg * PAGE));
     let j = null;
     for (let tryNo = 0; tryNo < 4 && !j; tryNo++) {
-      try { j = JSON.parse(await post(page, ENDPOINT, p.toString())); }
-      catch (e) { console.error(`${t.label} p${pg} 재시도`, e.message.slice(0, 100)); await openSearch(page); }
+      try {
+        const x = JSON.parse(await post(page, ENDPOINT, p.toString()));
+        if (!Number.isFinite(x.totalCount) || (x.cltrInfVOList != null && !Array.isArray(x.cltrInfVOList))) throw new Error('응답 형식 오류');
+        j = x;
+      } catch (e) { console.error(`${t.label} p${pg} 재시도`, e.message.slice(0, 100)); await openSearch(page); }
     }
     if (!j) throw new Error(`${t.label} 검색 실패 (page ${pg})`);
     total = j.totalCount;
     const list = j.cltrInfVOList || [];
     rows.push(...list);
-    if (list.length < PAGE) break;
+    if (!list.length || rows.length >= total) break;
   }
+  // 쪽을 넘기다 중간에 끊기면 일부만 받은 채 성공으로 처리되지 않게 서버 totalCount 와 대조한다.
+  if (rows.length < total * 0.98) throw new Error(`${t.label} ${rows.length}/${total}행만 수신 (잘림)`);
   return { track: t.key, label: t.label, max: Number(t.max), totalCount: total, rows };
 }
 
@@ -68,12 +73,16 @@ async function searchTrack(page, base, t) {
   }
   const base = p0.toString();
   const window_ = [p0.get('srchBidPerdBgngDt'), p0.get('srchBidPerdEndDt')];
+  const results = [];
   for (const t of TRACKS) {
     const r = await searchTrack(page, base, t);
     r.bidWindow = window_;
-    fs.writeFileSync(path.join(outDir, `search_${t.key}.json`), JSON.stringify(r));
+    results.push(r);
     console.error(`${t.label}: ${r.rows.length}행 (서버 totalCount ${r.totalCount})`);
     if (!r.rows.length) console.error(`경고: ${t.label} 검색 결과 0건`);
   }
+  if (results.every(r => !r.rows.length)) throw new Error('세 트랙 모두 0건 — 수집 실패로 처리');
+  // 세 트랙이 모두 끝난 뒤에 한꺼번에 쓴다(중간 실패 때 일부 파일만 남아 --skip-search 가 부분 결과를 재사용하는 일을 막는다).
+  for (const r of results) fs.writeFileSync(path.join(outDir, `search_${r.track}.json`), JSON.stringify(r));
   await browser.close();
 })().catch(e => { console.error('검색 실패:', e.message); process.exit(1); });

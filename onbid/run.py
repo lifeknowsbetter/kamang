@@ -78,7 +78,8 @@ def main():
     ap.add_argument("--no-results", action="store_true", help="낙찰 결과·동종 낙찰 사례 조회 생략")
     ap.add_argument("--no-state", action="store_true", help="추적 상태 파일을 저장하지 않음(시험용)")
     args = ap.parse_args()
-    today = datetime.date.fromisoformat(args.today) if args.today else datetime.date.today()
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    today = datetime.date.fromisoformat(args.today) if args.today else datetime.datetime.now(kst).date()
     out = args.out
     items_dir, media_dir = os.path.join(out, "items"), os.path.join(out, "media")
     os.makedirs(items_dir, exist_ok=True)
@@ -86,11 +87,25 @@ def main():
     # 1. 검색
     if not (args.skip_search and all(os.path.exists(os.path.join(out, f"search_{k}.json")) for k in "ABC")):
         log("온비드 조건검색 중...")
-        if node("search.js", out, C.BUDGET_RLST, C.BUDGET_MVAST, C.CAR_MAX, timeout=1800).returncode != 0:
+        try:
+            rc = node("search.js", out, C.BUDGET_RLST, C.BUDGET_MVAST, C.CAR_MAX, timeout=1800).returncode
+        except (subprocess.TimeoutExpired, OSError) as e:      # 시간 초과, node 없음
+            log(f"검색 실행 오류: {type(e).__name__} {e}")
+            rc = -1
+        if rc != 0:
             report.write_failure(out, today, "온비드 조건검색 접속 실패")
             log("검색 실패 — 실패 리포트만 작성")
             return 2
-    search = {k: json.load(open(os.path.join(out, f"search_{k}.json"))) for k in "ABC"}
+    try:
+        search = {k: json.load(open(os.path.join(out, f"search_{k}.json"))) for k in "ABC"}
+    except (OSError, ValueError) as e:
+        report.write_failure(out, today, f"검색 결과 파일을 읽지 못함({type(e).__name__})")
+        log(f"검색 결과 파일 오류 — 실패 리포트만 작성: {e}")
+        return 2
+    if not any(search[k].get("rows") for k in "ABC"):
+        report.write_failure(out, today, "검색 결과 0건(빈 데이터)")
+        log("검색 결과가 비어 있음 — 실패 리포트만 작성")
+        return 2
 
     # 2. 1차 선별
     pool_a, stats_a = A.select_A(search["A"])
@@ -111,7 +126,11 @@ def main():
             if not os.path.exists(os.path.join(items_dir, mng + ".done")):
                 log(f"  상세 없음: {mng}")
                 continue
-            it = parse.parse_item(mng, items_dir)
+            try:
+                it = parse.parse_item(mng, items_dir)
+            except Exception as e:       # 한 물건의 손상된 원자료가 전체 실행을 멈추지 않게(missing_details에 집계된다)
+                log(f"  상세 파싱 실패: {mng} ({type(e).__name__}: {e})")
+                continue
             it.update(row=v["row"], rounds=v["rounds"], link=A.link(v["row"]),
                       land_class=v.get("land_class"), score=v.get("score"), prescore=v.get("prescore"), dup=v.get("dup", 0))
             # 일부 공고(불용품 등)는 상세 화면 배치가 달라 가격을 못 읽는다 — 검색 목록 값으로 채운다
@@ -127,19 +146,31 @@ def main():
     tb = A.build_B(load(pool_b))
     tc = A.build_C(load(pool_c))
     missing = {"A": len(pool_a) - len(ta), "D": len(pool_d) - len(td), "B": len(pool_b) - len(tb), "C": len(pool_c) - len(tc)}
+    if (pool_a or pool_d or pool_b or pool_c) and not (ta or td or tb or tc):
+        report.write_failure(out, today, "상세 화면 수집 실패(상세를 하나도 받지 못함)")
+        log("상세 수집이 전부 실패 — 실패 리포트만 작성")
+        return 2
 
     # 5. 사진·감정평가서 + 링크 확인 (리포트에 오를 만한 후보만)
     shortlist = ta[:C.MEDIA_A] + td[:C.MEDIA_D] + tb[:C.MEDIA_B] + tc[:C.MEDIA_C]
     for it in shortlist:
-        it["link_ok"] = verify_link(it["link"], it["mng"])
+        it["link_ok"] = True if args.no_media else verify_link(it["link"], it["mng"])      # --no-media는 오프라인 시험 실행용: 링크 확인 생략
         if not args.no_media:
             log(f"사진·감정평가서: {it['mng']}")
-            it["media"] = media.collect(it, media_dir)
+            try:
+                it["media"] = media.collect(it, media_dir)
+            except Exception as e:           # 한 건의 사진·PDF 처리 실패가 전체 실행을 멈추지 않게 한다
+                log(f"  사진·감정평가서 처리 오류 {it['mng']}: {type(e).__name__} {e}")
+                it["media"] = {"dir": os.path.join(media_dir, it["mng"]),
+                               "photos": {"count": 0, "downloaded": 0, "sheet": None},
+                               "appraisal": {"status": f"오류({type(e).__name__})"}}
     # 감정평가서 본문(맹지·급경사·현황 농지·분묘)을 읽어 등급을 다시 매기고, 사진을 본 뒤의 순서로 정렬한다
-    for it in ta[:C.MEDIA_A]:
-        A.apply_appraisal(it, "A")
-    for it in td[:C.MEDIA_D]:
-        A.apply_appraisal(it, "D")
+    for kind, items in (("A", ta[:C.MEDIA_A]), ("D", td[:C.MEDIA_D])):
+        for it in items:
+            try:
+                A.apply_appraisal(it, kind)
+            except Exception as e:
+                log(f"  감정평가서 신호 추출 오류 {it['mng']}: {type(e).__name__} {e}")
     ta = A.sort_A(ta[:C.MEDIA_A]) + ta[C.MEDIA_A:]
     td = A.sort_D(td[:C.MEDIA_D]) + td[C.MEDIA_D:]
 
@@ -165,24 +196,31 @@ def main():
         changed = track.apply_results(st, res.get("items"), today.isoformat())
         for it in tb[:C.MEDIA_B] + tc[:C.MEDIA_C]:
             if it.get("comp_key"):
-                it["comps"] = track.comps_summary(res["keywords"].get(it["comp_key"]), exclude=it["mng"],
+                it["comps"] = track.comps_summary((res.get("keywords") or {}).get(it["comp_key"]), exclude=it["mng"],
                                                   price=it.get("price"), window=1.7 if it["comp_key"].startswith("C:") else 5)
+    elif keywords and not args.no_results:       # 조회 자체가 실패했으면 '낙찰 사례 없음'이 아니라 '조회 실패'로 표시한다
+        for it in tb[:C.MEDIA_B] + tc[:C.MEDIA_C]:
+            if it.get("comp_key"):
+                it["comps"] = track.comps_summary(None)
     tracking = report.tracking_data(st, changed, due_items, res is not None)
     for it in ta + td + tb + tc:
         e = st["items"].get(it["mng"])
-        it["seen"] = {"first_seen": e.get("first_seen"), "reported": e.get("reported") or []} if e else None
+        it["seen"] = ({"first_seen": e.get("first_seen"), "reported": e.get("reported") or [], "prev_price": e.get("price"),
+                       "prev_deadline": e.get("deadline"), "prev_seen": e.get("last_seen")} if e else None)
     track.add_candidates(st, today.isoformat(), {"A": ta[:C.MEDIA_A], "D": td[:C.MEDIA_D], "B": tb[:C.MEDIA_B], "C": tc[:C.MEDIA_C]})
     track.prune(st, today.isoformat())
-    if not args.no_state:
-        track.save(st)
 
     # 개발 사업 연관: 상세를 열지 않은 전체 압류 부동산 목록을 개발 사업 데이터와 맞춘다
-    dz = devzone.load()
-    devscan = devzone.scan(search["A"]["rows"], dz)
-    for h in devscan["shown"]:
-        h["link"] = A.link(h.pop("row"))
-    devscan.update(entries=len(dz.get("entries") or []), built=dz.get("built"),
-                   counts={str(k): v for k, v in devscan["counts"].items()})
+    try:
+        dz = devzone.load()
+        devscan = devzone.scan(search["A"]["rows"], dz)
+        for h in devscan["shown"]:
+            h["link"] = A.link(h.pop("row"))
+        devscan.update(entries=len(dz.get("entries") or []), built=dz.get("built"),
+                       counts={str(k): v for k, v in devscan["counts"].items()})
+    except Exception as e:                       # 개발 데이터가 깨져도 나머지 리포트는 낸다
+        log(f"개발 사업 연관 집계 오류: {type(e).__name__} {e}")
+        devscan = {"total": 0, "hits": 0, "counts": {"1": 0, "2": 0, "3": 0}, "shown": [], "entries": 0, "built": None}
     data = {"today": today.isoformat(), "bid_window": search["A"].get("bidWindow"), "devscan": devscan,
             "stats": {"A": stats_a, "B": stats_b, "C": stats_c, "D": stats_d}, "missing_details": missing,
             "tracking": tracking, "A": ta, "D": td, "B": tb, "C": tc}
@@ -190,6 +228,11 @@ def main():
         json.dump(data, f, ensure_ascii=False, indent=1, default=str)
     report.write_draft(out, data)
     log(f"완료: {out}/report_draft.md")
+    if not args.no_state:                        # 초안을 쓴 뒤에 저장한다(상태 저장 실패가 초안을 막지 않게)
+        try:
+            track.save(st)
+        except OSError as e:
+            log(f"경고: 추적 상태 저장 실패 — {e}")
     return 0
 
 

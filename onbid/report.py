@@ -3,6 +3,7 @@ import datetime
 import os
 import re
 
+from . import analyze
 from . import config as C
 from . import devzone
 from . import geo
@@ -11,7 +12,18 @@ CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯"
 
 
 def won(n):
-    return f"{n:,}원" if isinstance(n, (int, float)) and n is not None else "-"
+    return f"{n:,}원" if isinstance(n, (int, float)) else "-"
+
+
+def _rows_text(rows, n=12, width=50):
+    """명세서 표의 칸 글(한 칸이 한 줄)을 파이썬 목록 모양이 아닌 한 줄 글로 잇는다."""
+    rows = [str(r).strip() for r in rows or [] if str(r).strip()]
+    return " · ".join(r[:width] for r in rows[:n]) + (" …" if len(rows) > n else "")
+
+
+def _cell(s):
+    """마크다운 표 칸에 넣을 글: 칸을 깨는 | 와 줄바꿈을 정리한다."""
+    return str(s).replace("|", "\\|").replace("\n", " ")
 
 
 def pct(a, b):
@@ -62,10 +74,20 @@ def seen_tag(it, today):
     sn = it.get("seen")
     if not sn:
         return "🆕"
-    rep = [d for d in sn.get("reported") or [] if d < today.isoformat()]
+    rep = sorted(d for d in sn.get("reported") or [] if d < today.isoformat())
     if rep:
-        return f"↻ {rep[-1][5:].replace('-', '/')} 보고"
-    return f"검토 {sn['first_seen'][5:].replace('-', '/')}~"
+        tag = f"↻ {rep[-1][5:].replace('-', '/')} 보고"
+        pp, cp, pd, cd = sn.get("prev_price"), it.get("price"), sn.get("prev_deadline"), deadline(it)
+        ch = []
+        if isinstance(pp, int) and isinstance(cp, int) and pp != cp:
+            ch.append(f"가격 {pp:,}→{cp:,}")
+        if pd and cd and pd[:16] != cd[:16]:
+            ch.append(f"마감 {pd[5:16]}→{cd[5:16]}")
+        return tag + (" · 변경 " + ", ".join(ch) if ch else (" · 가격·마감 그대로" if pp is not None else ""))
+    fs = sn.get("first_seen") or ""
+    if fs >= today.isoformat():
+        return "🆕"
+    return f"검토 {fs[5:].replace('-', '/')}~" if fs else "🆕"
 
 
 def tracking_data(st, changed, due_items, queried):
@@ -113,15 +135,22 @@ def comps_line(it):
     c = it.get("comps")
     if not c:
         return None
-    if not c["n_sold"]:
-        return f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 낙찰 사례 없음"
+    key = (it.get("comp_key") or "").split(":", 1)[-1]
+    if c.get("failed"):
+        return f"'{key}' 동종 낙찰 조회에 실패해 이번에는 비교하지 못함(결과 미확인)"
+    cut = f" ※ 조회 상한에 걸려 {c['oldest']} 이후분만 집계" if c.get("truncated") and c.get("oldest") else ""
+    if not c.get("n_sold"):
+        return f"최근 90일 '{key}' 낙찰 사례 없음{cut}"
+
     def one(e):
         rate = f"{e['rate']:.0f}%, " if e.get("rate") else ""
         low = f"최저 {e['lowest']:,}→" if e.get("lowest") else ""
-        return f"{e['date'][5:]} {e['name'][:22]} {low}낙찰 {e['bid']:,}원({rate}{e['bidders']}명, {e['region']})"
-    ex = "; ".join(one(e) for e in c["examples"][:3])
+        bid = f"{e['bid']:,}원" if isinstance(e.get("bid"), int) else "-"
+        who = f"{e['bidders']}명, " if e.get("bidders") else ""
+        return f"{(e.get('date') or '')[5:]} {(e.get('name') or '')[:22]} {low}낙찰 {bid}({rate}{who}{e.get('region') or '-'})"
+    ex = "; ".join(one(e) for e in (c.get("examples") or [])[:3])
     med = f"낙찰가율 중앙값 {c['median_rate']}%" if c.get("median_rate") else "사례 부족(중앙값 없음)"
-    return f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 비슷한 가격대 낙찰 {c['n_sold']}건, {med} — {ex}"
+    return f"최근 90일 '{key}' 비슷한 가격대 낙찰 {c['n_sold']}건, {med} — {ex}{cut}"
 
 
 def place_line(it):
@@ -156,6 +185,22 @@ def _sched_table(it):
     return lines
 
 
+def rounds_lines(it):
+    """같은 입찰기간에 회차가 여러 개 동시에 열린 물건(파산재단 등): 대표 행 가격만 나가면 오해하기 쉬워 따로 알린다."""
+    rs = it.get("rounds") or []
+    if len(rs) < 2:
+        return []
+    ps = []
+    for r in rs:
+        try:
+            ps.append(int(re.sub(r"\D", "", str(r.get("lowstBidPrc"))) or 0))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    ps = [p for p in ps if p]
+    return [f"  - ⚠ 같은 입찰기간에 회차 {len(rs)}개가 동시에 열려 있다(검색 행 최저가 {' / '.join(f'{p:,}' for p in ps)}원). "
+            "위 가격은 그중 첫 행이므로 온비드 상세에서 회차별 가격을 확인할 것"]
+
+
 def appr_lines(it):
     """감정평가서 본문에서 코드가 뽑은 맹지·급경사·접근불가·현황 농지·분묘·제시외 줄. 모델이 사진만 보고 지형을 단정하지 않게 먼저 보여 준다."""
     ex = it.get("appr_excerpt") or []
@@ -172,14 +217,18 @@ def exit_lines(it):
     e = it.get("exit") or {}
     if not e:
         return []
+    fx = e.get("fixed_cost", 380_000)
+    fx_txt = f"{fx // 10_000:,}만원"
     L = [f"- 🧮 입찰 상한 계산(코드 산출 — 그대로 옮길 것): 예산 상한 **{e['budget_cap']:,}원**"
          " (1,000만 − 등기 실비 5만, ÷1.046)"]
+    if e.get("over_budget"):
+        L.append(f"  - ⚠ 현재 최저가가 예산 상한({e['budget_cap']:,}원)을 넘는다 — 이 가격에는 입찰할 수 없다(1,000만원 한도)")
     cap = e.get("exit_cap")
     if cap is not None:
         if cap <= 0:
-            L.append("  - 출구 상한: 감정가×0.7에서 실비·목표이익 35만원을 빼면 남는 돈이 없다 → 어떤 가격이든 수익이 나지 않는 구조")
+            L.append(f"  - 출구 상한: 감정가×0.7에서 실비·목표이익 {fx_txt}을 빼면 남는 돈이 없다 → 어떤 가격이든 수익이 나지 않는 구조")
         else:
-            L.append(f"  - 출구 상한 **{cap:,}원** (감정가×0.7 − 실비 8만 − 목표이익 30만, ÷1.046. 시세를 모르므로 감정가를 넣은 '위쪽 한계'이고 실제 시세가 낮으면 더 내려간다)")
+            L.append(f"  - 출구 상한 **{cap:,}원** (감정가×0.7 − 실비·목표이익 {fx_txt}[등기 5만 + 우편·교통 3만 + 목표이익 30만], ÷1.046. 시세를 모르므로 감정가를 넣은 '위쪽 한계'이고 실제 시세가 낮으면 더 내려간다)")
             fu = e.get("first_under")
             if fu:
                 now = (it.get("round") or "").split("/")[0] == fu["no"].split("/")[0]
@@ -199,9 +248,9 @@ def dev_lines(it):
     if not dev:
         return []
     live = [d for d in dev if d["stage"] != "보류·취소"]
-    pool = live or dev
-    strong = [d for d in pool if d["tier"] <= 2]
-    show = strong[:2] or pool[:1]          # 시군구만 맞는 약한 연관은 한 줄로만 보여 준다
+    gone = [d for d in dev if d["stage"] == "보류·취소"]
+    strong = [d for d in live if d["tier"] <= 2]
+    show = strong[:2] or live[:1]          # 시군구만 맞는 약한 연관은 한 줄로만 보여 준다
     L = []
     for d in show:
         src = f" · [출처]({d['sources'][0]})" if d.get("sources") else ""
@@ -214,7 +263,10 @@ def dev_lines(it):
             L.append(f"  - 일정: {d['schedule']}")
         if d.get("land_rules"):
             L.append(f"  - 토지 규제: {d['land_rules']}")
-    if any(d["tier"] <= 2 and d["stage"] != "보류·취소" for d in show):
+    if gone:
+        L.append("- ⛔ 개발 사업 보류·취소(호재로 읽지 말 것): "
+                 + "; ".join(f"{d['name']}[{d['why']}] 기준 {d['asof']}" for d in gone[:2]))
+    if any(d["tier"] <= 2 for d in show):
         L.append("  - ⚠ 위치가 가깝다는 사실일 뿐 수익 근거가 아니다. 구역 경계는 지번으로 토지이음·고시 도면에서 확인할 것(읍면동 일치도 구역 밖일 수 있다). "
                  "구역 안이면 지구지정 뒤 취득분은 개발이익이 배제된 보상가가 기준일 수 있고, 토지거래허가구역이면 압류재산 공매 낙찰은 허가 면제로 읽히나(시행령 제11조제3항제12호) 되팔 때 매수인에게 허가가 필요할 수 있다.")
     return L
@@ -226,19 +278,24 @@ def devscan_section(ds):
         return []
     if not ds.get("entries"):
         return ["## 🏗 개발 사업 연관 물건", "개발 사업 데이터(onbid/data/devzones.json)를 읽지 못해 이번에는 연관 표시를 생략한다.", ""]
-    c = ds["counts"]
-    L = ["## 🏗 개발 사업 연관 물건 — 전국 압류 부동산 전체 목록 기준",
-         f"압류재산 {ds['total']}건 중 개발 사업과 위치가 맞는 물건 {ds['hits']}건(읍면동 일치 {c['1']}건, 같은 시·구·읍면동 미특정 {c['2']}건, 그 밖에 시군구만 맞는 약한 연관 {c['3']}건). "
-         f"데이터 {ds['entries']}개 사업, 기준 {ds.get('built') or '-'}. "
-         "상세(권리·점유·사진)를 열기 전의 1차 목록이라 위험은 따로 확인해야 하고, 위치가 가깝다는 사실일 뿐 수익을 뜻하지 않는다.",
-         "",
-         "| 물건 | 최저가(감정가 대비) | 산본 | 연관 사업 | 단계 | 연관 |", "|---|---|---|---|---|---|"]
+    c = ds.get("counts") or {}
+    L = ["## 🏗 개발 사업 연관 물건 — 전국 압류 부동산 전체 목록 기준"]
+    if not ds.get("hits") or not ds.get("shown"):
+        L.append(f"압류재산 {ds.get('total', 0)}건 중 개발 사업과 위치가 맞는 물건이 없다"
+                 f"(데이터 {ds['entries']}개 사업, 기준 {ds.get('built') or '-'}).")
+        return L + [""]
+    L += [f"압류재산 {ds['total']}건 중 개발 사업과 위치가 맞는 물건 {ds['hits']}건(읍면동 일치 {c.get('1', 0)}건, 같은 시·구·읍면동 미특정 {c.get('2', 0)}건, 그 밖에 시군구만 맞는 약한 연관 {c.get('3', 0)}건). "
+          f"데이터 {ds['entries']}개 사업, 기준 {ds.get('built') or '-'}. "
+          "상세(권리·점유·사진)를 열기 전의 1차 목록이라 위험은 따로 확인해야 하고, 위치가 가깝다는 사실일 뿐 수익을 뜻하지 않는다.",
+          "",
+          "| 물건 | 최저가(감정가 대비) | 산본 | 연관 사업 | 단계 | 연관 |", "|---|---|---|---|---|---|"]
     for h in ds["shown"]:
         appr, pr = h.get("appraisal"), h.get("price")
         d = h["dev"]
-        nm = (h.get("name") or "")[:34]
-        L.append(f"| [{nm}]({h['link']}) {'(지분)' if h.get('share') else ''} {h.get('cat') or ''} | {won(pr)}" + (f" ({pct(pr, appr)})" if appr and pr else "")
-                 + f" | {h['dist']}km | {d['name'][:30]} | {d['stage']} | {d['why']} |")
+        nm = _cell((h.get("name") or "")[:34]).replace("[", "(").replace("]", ")")
+        dist = f"{h['dist']}km" if h.get("dist") is not None else "-"
+        L.append(f"| [{nm}]({h.get('link')}) {'(지분)' if h.get('share') else ''} {_cell(h.get('cat') or '')} | {won(pr)}" + (f" ({pct(pr, appr)})" if appr and pr else "")
+                 + f" | {dist} | {_cell(d['name'][:30])} | {d['stage']} | {d['why']} |")
     L.append("")
     return L
 
@@ -258,28 +315,41 @@ def block_A(i, it, today):
          f"- 감정가 {won(it.get('appraisal'))} → 현재({it.get('round')}회) **{won(it.get('price'))}** "
          f"(감정가의 {pct(it.get('price'), it.get('appraisal'))}, {it.get('fails')} 유찰), 입찰 {dday(it, today)}",
          f"  - 다음 회차: " + (f"{nr['no']}회 {nr['start'][:10]} **{nr['price']:,}원**" if nr else "공고상 미등록(유찰 시 재공고 확인)"),
+         *rounds_lines(it),
          *_sched_table(it),
          f"- 농지여부: " + ("⚠농지취득자격증명 필요" if it["land_class"] == "농지" else f"해당 없음({area.get('use', '')})"),
          ]
     if b["공유자수"]:
-        L.append(f"- ⚠공유자 현황: {b['공유자수']}명(법인 {b['공유자_법인']}), 등록일 {', '.join(b['공유자_등록일'])}"
-                 f" → ⚠공유자 우선매수신청 리스크" + (" / 장기 방치 지분 가능성(10년↑)" if b["공유자_장기"] else ""))
+        L.append(f"- ⚠공유자 현황: {b['공유자수']}명(법인 {b['공유자_법인']}), 등록일 {', '.join(d for d in b['공유자_등록일'] if re.match(r'\d{4}-', d)) or '미상'}"
+                 + (f"(등록일 미상 {b['공유자_등록일미상']}명)" if b.get("공유자_등록일미상") and b["공유자_등록일미상"] < b["공유자수"] else "")
+                 + " → ⚠공유자 우선매수신청 리스크" + (" / 장기 방치 지분 가능성(10년↑)" if b["공유자_장기"] else ""))
     elif b.get("정보부족"):
         L.append("- 공유자 현황: 등기 주요정보 0건 제공 — 지분물건이므로 공유자 존재 확실, 확인 불가")
     else:
         L.append("- 공유자 현황: 등기 주요정보상 공유자 행 없음")
     if b["기타등기권리"]:
         L.append(f"  - 기타 등기 권리: {', '.join(b['기타등기권리'])}")
+    stm = it.get("statement") or {}
     if not b["명세서공개"]:
-        L.append("- 인수권리: 공매재산명세서 비공개 — 입찰 임박 시 재확인 필요")
+        if stm.get("unreadable"):
+            L.append("- 인수권리: ⚠ 공매재산명세서 화면은 열렸으나 내용을 읽지 못함(수집 오류 가능) — 공란이 아니라 '미확인'. 온비드에서 직접 확인")
+        else:
+            L.append("- 인수권리: 공매재산명세서 비공개 — 입찰 임박 시 재확인 필요")
     elif b["인수권리"] or b["지상권개요"]:
         L.append(f"- ⚠매수인 인수 위험: {' / '.join(b['인수권리'] + b['지상권개요'])}")
     else:
-        L.append(f"- 인수권리: 명세서(기준일 {it['statement'].get('base_date')}) 공란 — 권리관계 깨끗함")
+        L.append(f"- 인수권리: 명세서(기준일 {stm.get('base_date') or '-'}) 공란 — 권리관계 깨끗함")
     if b["점유"] or b["임대차"] or b["명세서점유행"] or b["명세서임차행"]:
-        L.append(f"- ⚠점유자: 점유 {b['점유']}건·임대차 {b['임대차']}건 {b['명세서점유행'][:8]} → ⚠명도 책임 발생 가능")
-    else:
+        L.append(f"- ⚠점유자: 점유 {b['점유']}건·임대차 {b['임대차']}건"
+                 + (f" / 명세서 점유현황: {_rows_text(b['명세서점유행'])}" if b["명세서점유행"] else "")
+                 + (f" / 명세서 임차인: {_rows_text(b['명세서임차행'])}" if b["명세서임차행"] else "")
+                 + " → ⚠명도 책임 발생 가능")
+    elif b.get("조회누락"):
+        L.append(f"- ⚠점유자: {'·'.join(b['조회누락'])} 정보를 받지 못해 확인 불가 — 입찰 전 온비드 상세에서 직접 확인")
+    elif b["명세서공개"]:
         L.append("- 점유자: 없음(점유·임대차 0건, 명세서 공란)")
+    else:
+        L.append("- 점유자: 점유·임대차 0건이나 공매재산명세서를 확인하지 못해 점유 여부는 미확인")
     notes = it.get("notes") or (it.get("statement") or {}).get("note") or []
     L.append("- 유의사항 원문:")
     L += [f"  > {n}" for n in notes] or ["  > (없음)"]
@@ -311,9 +381,10 @@ def block_B_row(it, today):
     name = (it.get("display") or it.get("name") or "")[:40]
     appr = it.get("appraisal")
     price = it.get("price")
-    return (f"| [{name}]({it['link']}) `{seen_tag(it, today)}` | {it['mng']} | {won(price)}" + (f" (감정 {appr:,})" if appr and appr != price else "")
-            + f" | {dday(it, today)} | ⟪사진 상태판단⟫ | {_km_tag(it)}{it.get('org')} / 보관 {it.get('place', '')[:40]}"
-            + (f"; {flags}" if flags else "") + " |")
+    name = _cell(name).replace("[", "(").replace("]", ")")
+    return (f"| [{name}]({it['link']}){'' if it.get('link_ok') else ' (⚠ 링크 확인 실패)'} `{seen_tag(it, today)}` | {it['mng']} | {won(price)}" + (f" (감정 {appr:,})" if appr and appr != price else "")
+            + f" | {dday(it, today)} | ⟪사진 상태판단⟫ | "
+            + _cell(f"{_km_tag(it)}{it.get('org')} / 보관 {(it.get('place') or '')[:40]}" + (f"; {flags}" if flags else "")) + " |")
 
 
 def block_C(i, it, today):
@@ -327,8 +398,12 @@ def block_C(i, it, today):
          f"{it.get('fuel')} / {cc} / {km} / 차량번호 {it.get('plate') or '-'}",
          place_line(it),
          f"- 가격: 감정가 {won(it.get('appraisal'))} → 현재 {won(it.get('price'))} ({it.get('round')}회, 유찰 {it.get('fails')}), 입찰 {dday(it, today)}",
-         f"- 보관/인도: {it.get('place')} / 인도책임 {it.get('handover') or '-'} / 공고 {it.get('org')} {it.get('branch') or ''}",
          ]
+    nr = it.get("next_round") or analyze.next_round(it.get("schedule") or [], it.get("round"))
+    L.append("  - 다음 회차: " + (f"{nr['no']}회 {nr['start'][:10]} **{nr['price']:,}원**" if nr else "공고상 미등록(유찰 시 재공고 확인)"))
+    L += rounds_lines(it)
+    L += _sched_table(it)
+    L.append(f"- 보관/인도: {it.get('place')} / 인도책임 {it.get('handover') or '-'} / 공고 {it.get('org')} {it.get('branch') or ''}")
     a = it.get("assess")
     if a:
         r3 = lambda x: int(round(x, -3))
@@ -369,6 +444,7 @@ def block_D(i, it, today):
          f"- 감정가 {won(it.get('appraisal'))} → 현재({it.get('round')}회) **{won(it.get('price'))}** "
          f"(감정가의 {pct(it.get('price'), it.get('appraisal'))}, {it.get('fails')} 유찰), 입찰 {dday(it, today)}",
          f"  - 다음 회차: " + (f"{nr['no']}회 {nr['start'][:10]} **{nr['price']:,}원**" if nr else "공고상 미등록(유찰 시 재공고 확인)"),
+         *rounds_lines(it),
          *_sched_table(it)]
     if it.get("ratio") is not None and it["ratio"] <= 15:
         if it.get("land_class") == "건물":
@@ -392,12 +468,21 @@ def block_D(i, it, today):
     return "\n".join(L)
 
 
+def _fmt_window(w):
+    """검색창 입찰기간. 트랙별 딕셔너리이거나 [시작, 끝] 목록일 수 있다."""
+    if isinstance(w, dict):
+        return ", ".join(f"{k} {_fmt_window(v)}" for k, v in w.items()) or "-"
+    if isinstance(w, (list, tuple)):
+        return " ~ ".join(str(x) for x in w) or "-"
+    return str(w) if w else "-"
+
+
 def write_draft(out, data):
     today = datetime.date.fromisoformat(data["today"])
     st = data["stats"]
     sa, sb, sc, sd = st["A"], st["B"], st["C"], st["D"]
     L = [f"# 📋 온비드 스카우팅 + 권리분석 ({data['today']} 기준) — 초안",
-         f"입찰기간 검색창: {data.get('bid_window')} · 기준 위치: {C.HOME}(직선거리 대략, 가까운 순으로 정렬)",
+         f"입찰기간 검색창: {_fmt_window(data.get('bid_window'))} · 기준 위치: {C.HOME}(직선거리 대략, 가까운 순으로 정렬)",
          "",
          "> 작성 지침: ⟪…⟫를 사진·감정평가서를 직접 보고 채운다. Track A는 아래 후보 중 상위 5건, Track D는 5건, Track B는 10건, "
          "Track C는 5건만 최종 리포트에 남긴다. 사진상 문제가 드러난 후보는 빼고 다음 후보로 대체한다. "
@@ -446,7 +531,7 @@ def write_draft(out, data):
         L += [block_C(i, it, today), ""]
     md = data.get("missing_details") or {}
     if any(md.values()):
-        L.append(f"(상세 수집 실패: {md})")
+        L.append(f"⚠ 상세 수집 실패: {md} — 트랙별 후보 수가 줄었으므로 위 목록이 전체가 아닐 수 있다(다음 실행에서 다시 시도).")
     L += ["", C.FOOTER]
     with open(os.path.join(out, "report_draft.md"), "w") as f:
         f.write("\n".join(L) + "\n")
@@ -455,7 +540,11 @@ def write_draft(out, data):
 def write_failure(out, today, reason):
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "report_draft.md"), "w") as f:
-        f.write(f"# 📋 온비드 주간 스카우팅 + 권리분석 ({today.isoformat()} 기준)\n\n"
-                f"**Track A: 지분경매** — 이번 주는 실시간 데이터 수집 실패 ({reason})\n\n"
-                f"**Track B: 동산 재판매** — 이번 주는 실시간 데이터 수집 실패\n\n"
-                f"**Track C: 자동차** — 이번 주는 실시간 데이터 수집 실패\n\n{C.FOOTER}\n")
+        f.write(f"# 📋 온비드 스카우팅 + 권리분석 ({today.isoformat()} 기준) — 수집 실패\n\n"
+                f"실시간 데이터 수집에 실패했다 ({reason}). 최저입찰가 1,000만원 이하 전국 기준의 아래 트랙 모두 이번에는 후보를 만들지 못했다.\n\n"
+                "**Track A: 지분 부동산** — 이번 실행은 실시간 데이터 수집 실패\n\n"
+                "**Track D: 단독 소액 부동산** — 이번 실행은 실시간 데이터 수집 실패\n\n"
+                "**Track B: 동산 재판매** — 이번 실행은 실시간 데이터 수집 실패\n\n"
+                "**Track C: 자동차** — 이번 실행은 실시간 데이터 수집 실패\n\n"
+                "※ 지난 데이터를 그대로 가져다 쓰지 않았다(가짜·오래된 데이터 금지). 다음 실행에서 다시 시도한다.\n\n"
+                f"{C.FOOTER}\n")

@@ -34,6 +34,8 @@ async function query(page, init, set) {
   for (let i = 0; i < 3; i++) {
     try {
       const j = JSON.parse(await post(page, EP, p.toString()));
+      // 오류 응답을 빈 목록으로 바꾸면 '조회 실패'가 '낙찰 사례 없음'으로 보인다 — 형식이 다르면 재시도 후 null(실패)로 돌려준다.
+      if (!Array.isArray(j.cltrBidRsltClgInfVOList) && !j.paginationInfo) throw new Error('응답 형식 오류');
       return j.cltrBidRsltClgInfVOList || [];
     } catch (e) { console.error('결과조회 재시도', e.message.slice(0, 80)); await sleep(2000 * (i + 1)); }
   }
@@ -62,6 +64,7 @@ const slim = rows => rows && rows.map(r => Object.fromEntries(KEEP.map(k => [k, 
       srchOpbdBgdd: k.from, calOpbdBgdd: k.from, srchOpbdEndd: today, calOpbdEndd: today,
       srchBidPerdBgngDt: k.from, calBidPerdBgngDt: k.from,
     });
+    if (rows && rows.length >= 100) console.error(`경고: 키워드 '${k.kw}' 결과가 100건 상한에 걸림 — 90일 전체가 아닌 최근분만 집계됨`);
     out.keywords[k.key] = slim(rows);
   }
   fs.writeFileSync(outFile, JSON.stringify(out));

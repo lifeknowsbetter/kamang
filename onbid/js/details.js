@@ -25,7 +25,7 @@ async function fetchFragments(page) {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
           body,
         });
-        out[ep] = await r.text();
+        out[ep] = r.ok ? await r.text() : 'ERR HTTP ' + r.status;
       } catch (e) { out[ep] = 'ERR ' + e.message; }
     }
     return out;
@@ -42,7 +42,7 @@ async function fetchImagePopup(page) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
         body: $.param(params, true),
       });
-      return await r.text();
+      return r.ok ? await r.text() : 'ERR HTTP ' + r.status;
     } catch (e) { return 'ERR ' + e.message; }
   });
 }
@@ -58,7 +58,11 @@ async function fetchStatement(ctx, page, reports) {
     page.evaluate(code => eval(code), btns[btns.length - 1]),
   ]);
   await popup.waitForLoadState('domcontentloaded', { timeout: 90000 }).catch(() => {});
-  for (let w = 0; w < 40 && !reports.some(x => x.includes('DocumentPageView')); w++) await popup.waitForTimeout(500);
+  for (let w = 0; w < 120 && !reports.some(x => x.includes('DocumentPageView')); w++) await popup.waitForTimeout(500);
+  if (!reports.some(x => x.includes('DocumentPageView'))) {      // 버튼은 있었는데 본문을 못 받음 — 빈 명세서('공란')와 구별해 표시한다
+    await popup.close().catch(() => {});
+    return 'NO_RESPONSE';
+  }
   // 2쪽 이후는 "다음" 버튼을 눌러야 서버가 내려준다(인수권리·지상권·기타 유의사항은 보통 2쪽).
   for (let k = 0; k < 3; k++) {
     try {
@@ -91,9 +95,16 @@ async function fetchStatement(ctx, page, reports) {
     try {
       if (!(await gotoDetail(page, it))) { fail++; console.error('상세 실패', it.scrnIndctCltrMngNo); continue; }
       fs.writeFileSync(base + '.html', await page.content());
-      fs.writeFileSync(base + '.xhr', JSON.stringify(await fetchFragments(page)));
-      fs.writeFileSync(base + '.img', await fetchImagePopup(page));
-      fs.writeFileSync(base + '.stmt', await fetchStatement(ctx, page, reports));
+      const frags = await fetchFragments(page);
+      const badFrag = Object.entries(frags).filter(([, v]) => /^ERR/.test(v) || !/총|조회된 결과가 없습니다/.test(v)).map(([k]) => k);
+      if (badFrag.length) throw new Error('조각 수집 실패: ' + badFrag.join(','));
+      fs.writeFileSync(base + '.xhr', JSON.stringify(frags));
+      const img = await fetchImagePopup(page);
+      if (/^ERR/.test(img)) throw new Error('사진 팝업 수집 실패');
+      fs.writeFileSync(base + '.img', img);
+      let stmt = await fetchStatement(ctx, page, reports);
+      if (stmt === 'NO_RESPONSE') stmt = await fetchStatement(ctx, page, reports);      // 한 번 더 눌러 본다
+      fs.writeFileSync(base + '.stmt', stmt);        // 끝내 못 받으면 'NO_RESPONSE' 그대로 저장 — parse 가 '명세서 읽지 못함'으로 처리한다
       fs.writeFileSync(base + '.done', '');
       ok++;
       console.error('OK', it.scrnIndctCltrMngNo);

@@ -86,7 +86,8 @@ def estimate(fuel, year, cc=None, category="", km=None, flags=(), name="", value
     v = value_proxy
     if v and not heavy:
         r10k = lambda x: int(round(x / 10_000) * 10_000)
-        lo, hi = r10k(v * 0.8 * rule["first_rate"]), r10k(min(v * 1.5 * rule["first_rate"], rule["cap"] * rule["first_rate"]))
+        hi = r10k(min(v * 1.5 * rule["first_rate"], rule["cap"] * rule["first_rate"]))
+        lo = min(r10k(v * 0.8 * rule["first_rate"]), hi)          # 감정가가 클 때 하한이 상한(cap)을 넘지 않게
         out.update(amount_lo=lo, amount_hi=hi, amount_mid=(lo + hi) // 2)
     out["basis"] = (f"4등급 3.5톤 미만: 차량기준가액(보험개발원)×{int(rule['first_rate'] * 100)}%(1차), 상한 {rule['cap']:,}원. "
                     f"{rule['second_cond']}. 금액은 온비드 감정가로 차량기준가액을 대신 추정한 범위")

@@ -17,13 +17,13 @@ RATE_BANDS = ((0, 1_000_000, 2.09), (1_000_000, 2_000_000, 1.70), (2_000_000, 3_
               (3_000_000, 5_000_000, 1.31), (5_000_000, 10 ** 12, 1.09))
 
 # 되팔 상대가 좁고 운반·등록이 어려운 차량
-SPECIAL = re.compile(r"진개|소방|구급|엠블런스|앰뷸런스|압축|덤프|펌프|청소|음식물|폐차|유니버스|BH090|유니시티|트레일러|살수|고소작업|지게차|"
+SPECIAL = re.compile(r"진개|소방|구급|엠블런스|앰블런스|앰뷸런스|응급|레커|구난|압축|덤프|펌프|청소|음식물|폐차|유니버스|BH090|유니시티|트레일러|살수|고소작업|지게차|"
                      r"버스|에어로타운|저상|슬로프|특장|크레인|굴삭|트랙터|암롤|순찰|견인|수거")
 SPECIAL_CAT = ("특수", "덤프", "버스", "트레일러", "소방")
 PASSENGER = re.compile(r"쏘나타|아반떼|그랜져|그랜저|K[3579]|투싼|싼타페|스포티지|쏘렌토|쏘울|니로|모닝|레이|스파크|프라이드|SM[3567]|렉서스|체어맨|코란도|"
                        r"모하비|아이오닉|말리부|캠리|제네시스|G[78]0|티볼리|QM[356]")
 VAN = re.compile(r"스타렉스|카니발|승합")
-EV = re.compile(r"일렉트릭|\bEV\b|쏘울EV|전기차|전기")
+EV = re.compile(r"일렉트릭|(?<![A-Za-z])EV\d?(?![A-Za-z])|전기차|전기\s*(?:승용|자동차)|아이오닉\s*[56](?!\d)")
 ASK_RATIO_MAX = 0.20      # 본전에 필요한 시세 상승률 상한(경험칙) — 참고용 표시에만 쓰고 제외 기준으로는 쓰지 않는다
 
 
@@ -37,17 +37,18 @@ def _cc(name):
 
 
 def _km(name):
-    m = re.search(r"(\d{2,3},\d{3})\s*k?m", name or "")
+    m = re.search(r"(\d{2,3},\d{3})\s*k?m", name or "", re.I)
     return int(m.group(1).replace(",", "")) if m else None
 
 
-def assess(name, cat, price, sido, dist_km):
-    """반환: dict(verdict '제외'|'확인', reasons[], clear, extra, breakeven, need_pct, tow)"""
+def assess(name, cat, price, sido, dist_km, fuel=None, km=None):
+    """반환: dict(verdict '제외'|'확인', reasons[], clear, extra, breakeven, need_pct, tow)
+    fuel·km는 검색 행의 연료·주행거리 필드(있으면 물건명 정규식보다 먼저 믿는다)."""
     name, cat = name or "", cat or ""
     cc = _cc(name)
-    ev = bool(EV.search(name)) or (cc is not None and cc < 200)
-    hyb = "하이브리드" in name
-    kind = "승합" if (VAN.search(name) or "승합" in cat) else "승용" if (PASSENGER.search(name) or re.search(r"승용|SUV", cat)) else "기타"
+    ev = bool(EV.search(name)) or (cc is not None and cc < 200) or fuel == "전기"
+    hyb = "하이브리드" in name or fuel == "하이브리드"
+    kind = "기타" if "화물" in cat else "승합" if (VAN.search(name) or "승합" in cat) else "승용" if (PASSENGER.search(name) or re.search(r"승용|SUV", cat)) else "기타"
     light = cc is not None and cc <= 1000 and not ev and kind in ("승용", "승합")
     clear = price * rate(price)
     tax = 0.0 if light else clear * (0.07 if kind == "승용" else 0.05)
@@ -63,8 +64,8 @@ def assess(name, cat, price, sido, dist_km):
         reasons.append(f"최저가 300만 미만 구간은 낙찰가율 중앙값이 {int(rate(price) * 100)}%(시세에 붙는다)")
     if not special and 3_000_000 <= price < 5_000_000 and dist_km is not None and dist_km >= 200:
         reasons.append(f"산본에서 {dist_km}km(탁송 약 {int(tow // 10000)}만원)")
-    km = _km(name)
+    km = km or _km(name)
     if (ev or hyb) and (km or 0) >= 200_000:
-        reasons.append(f"EV·하이브리드 {km:,}km(배터리)")
+        reasons.append("EV·하이브리드 20만km 이상(배터리)")
     return dict(verdict="제외" if reasons else "확인", reasons=reasons, clear=clear, extra=extra, tax=tax, tow=tow,
-                breakeven=clear + extra, need_pct=extra / clear * 100, kind=kind)
+                breakeven=clear + extra, need_pct=extra / clear * 100 if clear else 0.0, kind=kind)

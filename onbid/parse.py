@@ -43,7 +43,7 @@ def _after(lines, key, start=0):
 
 def frag_rows(frag):
     """XHR 조각(PC 표 형식)에서 (총건수, 행 목록)."""
-    if not frag or frag.startswith("ERR"):
+    if not isinstance(frag, str) or not frag or frag.startswith("ERR"):
         return None, []
     b = re.sub(r"(?s)<script.*?</script>", "", frag)
     cnt = re.search(r"총\s*(?:<[^>]+>\s*)*(\d+)", b)
@@ -55,7 +55,7 @@ def frag_rows(frag):
                      for c in re.findall(r"(?s)<t[dh][^>]*>(.*?)</t[dh]>", tr)]
             if cells and not (len(cells) == 1 and "조회된 결과가 없습니다" in cells[0]):
                 rows.append(cells)
-    return (int(cnt.group(1)) if cnt else None), rows
+    return (int(cnt.group(1)) if cnt else len(rows)), rows        # 받은 조각이면 건수 표기가 없어도 행 수(0 포함). None은 '조각을 못 받음'
 
 
 def clip_lines(raw):
@@ -79,13 +79,15 @@ def clip_lines(raw):
     pages = {}
     for part in raw.split("\n=========\n"):
         _, _, body = part.partition("\n----\n")
-        try:
-            vd = json.loads(body).get("resValue", {}).get("viewData")
-        except ValueError:
+        try:                                     # 응답이 잘렸거나 resValue가 null이어도 이 조각만 건너뛴다
+            res = json.loads(body)
+            rv = res.get("resValue") if isinstance(res, dict) else None
+            vd = rv.get("viewData") if isinstance(rv, dict) else None
+            d = json.loads(base64.b64decode(vd)) if vd else None
+        except ValueError:                       # JSONDecodeError·binascii.Error 모두 ValueError
             continue
-        if not vd:
+        if not isinstance(d, dict):
             continue
-        d = json.loads(base64.b64decode(vd))
         for num, pg in zip(d.get("pageNumList", []), d.get("pageList", [])):
             acc = []
             walk(pg, acc)
@@ -98,7 +100,19 @@ def _section(lines, head, tail):
     if a is None:
         return None
     b = next((i for i in range(a + 1, len(lines)) if tail in lines[i]), None)
+    if b is None:           # 다음 구역 머리글이 없으면 다음 '▣' 머리글까지만(뒤 표를 삼키지 않게)
+        b = next((i for i in range(a + 1, len(lines)) if lines[i].lstrip().startswith("▣")), None)
     return lines[a + 1:b] if b else lines[a + 1:]
+
+
+def _note_section(lines):
+    """기타 유의 사항: 서명줄('YYYY.MM.DD' 바로 뒤 '한국자산관리공사 …')에서 끝낸다. 본문 속 기관명에서 잘리지 않게 한다."""
+    a = next((i for i, l in enumerate(lines) if "기타 유의 사항" in l), None)
+    if a is None:
+        return None
+    b = next((i for i in range(a + 1, len(lines) - 1)
+              if re.fullmatch(r"\d{4}\.\d\d\.\d\d", lines[i].strip()) and "한국자산관리공사" in lines[i + 1]), None)
+    return lines[a + 1:b] if b else _section(lines, "기타 유의 사항", "한국자산관리공사")
 
 
 def _rows_after_header(sec):
@@ -113,9 +127,11 @@ def statement(raw):
     st = clip_lines(raw)
     if st is None:
         return {"available": False}
+    if not st:      # 뷰어 버튼은 있었으나 리포트 본문(viewData)을 못 받음 — 공개 여부를 알 수 없다(공란으로 읽으면 안 된다)
+        return {"available": False, "unreadable": True}
     keep = _section(st, "효력을 잃지 아니하는 것", "지상권의 개요") or []
     surf = _section(st, "지상권의 개요", "기타 유의 사항") or []
-    note = _section(st, "기타 유의 사항", "한국자산관리공사") or []
+    note = _note_section(st) or []
     note = [l for l in note if not re.fullmatch(r"\d{4}\.\d\d\.\d\d", l.strip())]
     return {
         "available": True,
@@ -210,7 +226,7 @@ def parse_item(mng, d):
     r = {"mng": mng}
     j = _idx(L, "공고보기")
     r["name"] = L[j + 1] if 0 <= j < len(L) - 1 else None
-    if r["name"] == "공고보기":
+    if r["name"] == "공고보기" and j + 2 < len(L):
         r["name"] = L[j + 2]
     r["appraisal"] = _money(_after(L, "감정평가금액(원)"))
     r["price"] = _money(_after(L, "공매예정가격(원)") or _after(L, "최저입찰가격(원)"))
@@ -238,7 +254,12 @@ def parse_item(mng, d):
     for ext, key in (("xhr", "frag"), ("img", "img"), ("stmt", "stmt")):
         p = os.path.join(d, f"{mng}.{ext}")
         r[key] = open(p, encoding="utf-8").read() if os.path.exists(p) else None
-    frags = json.loads(r.pop("frag")) if r.get("frag") else {}
+    try:
+        frags = json.loads(r.pop("frag")) if r.get("frag") else {}
+    except ValueError:                           # 잘린 xhr JSON: 조각만 비우고 물건은 살린다
+        frags = {}
+    if not isinstance(frags, dict):
+        frags = {}
     r["reg_cnt"], r["reg"] = frag_rows(frags.get("inqRgstMtrsCrtiClg"))
     r["occ_cnt"], r["occ"] = frag_rows(frags.get("inqOcpyRelClg"))
     r["lease_cnt"], r["lease"] = frag_rows(frags.get("inqLeasInfClg"))
