@@ -22,7 +22,7 @@ LONG_TERM_YEARS = 10
 # 상세분석·리포트 건수
 # 최종 리포트에 자세히 쓰는 상위 개수(A 5 / D 5 / B 10 / C 5)는 코드가 아니라 ROUTINE_PROMPT가 정한다(초안은 MEDIA_* 개수만큼 후보를 만든다).
 # 사진/감정평가서를 내려받아 판단할 후보 수(리포트 건수보다 넉넉히)
-MEDIA_A, MEDIA_B, MEDIA_C, MEDIA_D = 8, 14, 5, 8
+MEDIA_A, MEDIA_B, MEDIA_C, MEDIA_D = 8, 14, 7, 8       # C는 리포트 5건 + 사진상 탈락 대비 여유 2건
 # 상세 화면을 열어 볼 사전 후보 수(목록 정보만으로 1차 선별 후)
 DETAIL_A, DETAIL_B, DETAIL_C, DETAIL_D = 30, 40, 15, 30
 # 같은 공고기관(예: 한 기관이 올린 장비 묶음)이 후보를 독차지하지 않게 하는 상한
