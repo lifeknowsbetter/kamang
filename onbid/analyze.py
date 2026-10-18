@@ -6,7 +6,9 @@
 import datetime
 import re
 
+from . import carfilter
 from . import config as C
+from . import geo
 from . import subsidy
 
 LINK_KEYS = ("cltrScrnGrpCd", "cltrPrptDivCd", "onbidCltrno", "onbidPbancNo", "pbctNo", "pbctCdtnNo")
@@ -43,31 +45,70 @@ def land_class(row):
 
 # ───────────────────────── 1차 선별(상세 화면 열기 전) ─────────────────────────
 
+def _dist(row):
+    d, _ = geo.dist_from_sanbon(row.get("sidoSgkEmd"))
+    return d
+
+
+def _cls_order(cls):
+    return {"우선": 0, "기타토지": 1, "건물": 1, "농지": 3}.get(cls, 2)
+
+
 def select_A(search):
+    """Track A — 지분 부동산(압류재산). 전국에서 고르되 산본에 가까운 순으로 상세를 연다."""
     g = dedupe(search["rows"])
     share = {k: v for k, v in g.items() if v["row"].get("alcYn") == "Y"}
-    stats = {"검색행": len(search["rows"]), "지분물건": len(share)}
-    by_type, in_region, pool = {}, {}, []
+    stats = {"검색행": len(search["rows"]), "부동산물건": len(g), "지분물건": len(share)}
+    by_type, pool = {}, []
     for k, v in share.items():
         r = v["row"]
         by_type[r["scrnPrptDvsnNm"]] = by_type.get(r["scrnPrptDvsnNm"], 0) + 1
-        if sido(r) not in C.RLST_REGIONS:
-            continue
-        in_region[k] = v
         if r["scrnPrptDvsnNm"] != "압류재산":
             continue
-        cls, _ = land_class(r)
-        v["land_class"] = cls
+        cls, sub = land_class(r)
+        v.update(land_class=cls, dist=_dist(r))
         pool.append(v)
     stats["재산유형별"] = by_type
-    stats["권역내(수도권·강원·충청)"] = len(in_region)
-    stats["권역내_압류재산"] = len(pool)
-    stats["권역내_압류재산_지목별"] = {}
+    stats["압류재산_지분"] = len(pool)
+    stats["산본_50km_이내"] = sum(1 for v in pool if v["dist"] is not None and v["dist"] <= C.NEAR_KM)
+    stats["지목별"] = {}
     for v in pool:
         sub = land_class(v["row"])[1]
-        stats["권역내_압류재산_지목별"][sub] = stats["권역내_압류재산_지목별"].get(sub, 0) + 1
-    non_farm = [v for v in pool if v["land_class"] in ("우선", "기타토지")]
-    detail = non_farm if len(non_farm) >= C.TOP_A * 2 else non_farm + [v for v in pool if v["land_class"] == "농지"]
+        stats["지목별"][sub] = stats["지목별"].get(sub, 0) + 1
+    non_farm = [v for v in pool if v["land_class"] != "농지"]
+    non_farm.sort(key=lambda v: (geo.band_idx(v["dist"]), _cls_order(v["land_class"]), v["row"].get("lowstBidPrc") or 0))
+    detail = non_farm[:C.DETAIL_A]
+    stats["상세분석"] = len(detail)
+    return detail, stats
+
+
+def select_D(search):
+    """Track D — 지분이 아닌 소액 부동산(단독 토지·건물 호실, 압류재산). 같은 건물의 비슷한 호실은 하나로 묶는다."""
+    g = dedupe(search["rows"])
+    solo = {k: v for k, v in g.items() if v["row"].get("alcYn") != "Y"}
+    stats = {"단독·미표시": len(solo)}
+    pool, seen = [], {}
+    for k, v in sorted(solo.items(), key=lambda kv: kv[1]["row"].get("lowstBidPrc") or 0):
+        r = v["row"]
+        if r["scrnPrptDvsnNm"] != "압류재산":
+            continue
+        cls, sub = land_class(r)
+        v.update(land_class=cls, dist=_dist(r), dup=0)
+        key = ((r.get("onbidCltrNm") or "")[:22], r.get("lowstBidPrc"))
+        if key in seen:                       # 같은 건물·같은 가격의 다른 호실
+            seen[key]["dup"] += 1
+            continue
+        seen[key] = v
+        pool.append(v)
+    stats["압류재산"] = len(pool)
+    stats["산본_50km_이내"] = sum(1 for v in pool if v["dist"] is not None and v["dist"] <= C.NEAR_KM)
+    stats["유형별"] = {"토지": sum(1 for v in pool if v["land_class"] in ("우선", "기타토지")),
+                    "건물": sum(1 for v in pool if v["land_class"] == "건물"), "농지(제외)": sum(1 for v in pool if v["land_class"] == "농지")}
+    live = [v for v in pool if v["land_class"] != "농지"]
+    key = lambda v: (geo.band_idx(v["dist"]), _cls_order(v["land_class"]), v["row"].get("lowstBidPrc") or 0)
+    bld = sorted([v for v in live if v["land_class"] == "건물"], key=key)[:C.DETAIL_D // 2]
+    lnd = sorted([v for v in live if v["land_class"] != "건물"], key=key)[:C.DETAIL_D - len(bld)]
+    detail = bld + lnd
     stats["상세분석"] = len(detail)
     return detail, stats
 
@@ -82,22 +123,48 @@ def _mvast_score(row):
         s += min(2, (appr - price) / appr * 4)       # 유찰로 감정가보다 싸진 만큼 가산
     if price < 50_000:
         s -= 1                                        # 소액 액세서리는 수고 대비 남는 게 적다
+    # 자차가 없으니 직접 가지러 갈 수 있는 곳이 낫다
+    d = _dist(row)
+    s += 2 if d is not None and d <= C.NEAR_KM else 1 if d is not None and d <= 100 else -1 if d is not None and d >= 200 else 0
     return s
 
 
 def select_B(search):
+    """Track B — 동산. 귀금속·시계·카메라·컴퓨터·명품 가방 + 감정가 대비 70% 이하로 내려온 장비류.
+    유가증권·특허·회원권 같은 권리형 자산과 폐기물·식료품은 기본 제외한다(되팔 상대·자격 문제)."""
     g = dedupe(search["rows"])
-    hits = []
+    hits, skipped, seen = [], {}, set()
     for k, v in g.items():
         r = v["row"]
         nm = r.get("onbidCltrNm") or ""
-        cat_hit = any(h in (r.get("ctgrFullNm") or "") for h in C.MVAST_CATEGORY_ONLY)
+        cat = r.get("ctgrFullNm") or ""
+        top = cat.split(" / ")[0]
+        if top in C.MVAST_SKIP_CATS:
+            skipped[top] = skipped.get(top, 0) + 1
+            continue
+        price, appr = r.get("lowstBidPrc") or 0, r.get("cltrApslEvlAvgAmt") or 0
+        cat_hit = any(h in cat for h in C.MVAST_CATEGORY_ONLY)
         kw_hit = re.search(C.MVAST_KEYWORDS, nm, re.I) and not re.search(C.MVAST_EXCLUDE, nm)
-        if (cat_hit and not re.search(C.MVAST_EXCLUDE, nm)) or kw_hit:
-            v["score"] = _mvast_score(r)
-            hits.append(v)
+        bag_hit = "가방" in cat and re.search(C.MVAST_BRAND_BAG, nm)
+        equip_hit = top in C.MVAST_EQUIP_CATS and appr and price <= appr * 0.7 and price >= 200_000
+        if not ((cat_hit and not re.search(C.MVAST_EXCLUDE, nm)) or kw_hit or bag_hit or equip_hit):
+            continue
+        key = (nm[:24], price)
+        if key in seen:                       # 같은 이름·같은 가격의 묶음 행
+            continue
+        seen.add(key)
+        v["score"] = _mvast_score(r) + (1 if equip_hit else 0)
+        v["dist"] = _dist(r)
+        hits.append(v)
     hits.sort(key=lambda v: -v["score"])
-    stats = {"검색행": len(search["rows"]), "동산물건": len(g), "키워드충족": len(hits),
+    per_org, spread, rest = {}, [], []
+    for v in hits:
+        o = v["row"].get("regOrgNm", "").strip()
+        per_org[o] = per_org.get(o, 0) + 1
+        (spread if per_org[o] <= C.MAX_PER_ORG_B else rest).append(v)
+    hits = spread + rest
+    stats = {"검색행": len(search["rows"]), "동산물건": len(g), "후보": len(hits), "권리형·폐기물 등 제외": skipped,
+             "산본_50km_이내": sum(1 for v in hits if v["dist"] is not None and v["dist"] <= C.NEAR_KM),
              "공고기관별": {}, "상세분석": min(len(hits), C.DETAIL_B)}
     for v in hits:
         o = v["row"]["regOrgNm"].strip()
@@ -147,17 +214,28 @@ def _car_prescore(v):
 
 
 def select_C(search):
+    """Track C — 자동차. 구조적으로 실효 없는 물건(carfilter)은 상세 전에 빼고, 남은 것을 산본 가까운 순으로 본다."""
     g = dedupe(search["rows"])
-    cars = list(g.values())
-    for v in cars:
-        v["prescore"] = _car_prescore(v)
-    cars.sort(key=lambda v: (-v["prescore"], v["row"].get("lowstBidPrc") or 0))
-    stats = {"검색행": len(search["rows"]), "차량": len(cars), "연료별": {}, "상세분석": min(len(cars), C.DETAIL_C)}
+    cars, dropped = [], {}
+    for v in g.values():
+        r = v["row"]
+        d = _dist(r)
+        a = carfilter.assess(r.get("onbidCltrNm"), r.get("ctgrFullNm"), r.get("lowstBidPrc") or 0, r.get("sidoEmd"), d)
+        v.update(prescore=_car_prescore(v), dist=d, assess=a)
+        if a["verdict"] == "제외":
+            key = a["reasons"][0].split("(")[0].strip()
+            key = "최저가 300만 미만" if key.startswith("최저가 300만") else "산본에서 200km 이상" if key.startswith("산본에서") else key
+            dropped[key] = dropped.get(key, 0) + 1
+            continue
+        cars.append(v)
+    cars.sort(key=lambda v: (geo.band_idx(v["dist"]), -v["prescore"], v["row"].get("lowstBidPrc") or 0))
+    stats = {"검색행": len(search["rows"]), "차량": len(g), "실효없음_제외": dropped, "남은_차량": len(cars), "연료별": {},
+             "상세분석": min(len(cars), C.DETAIL_C)}
     for v in cars:
         f = car_fuel(v["row"])
         stats["연료별"][f] = stats["연료별"].get(f, 0) + 1
     stats["경유_2009년이전"] = sum(1 for v in cars if car_fuel(v["row"]) == "경유" and (car_year(v["row"]) or 9999) <= 2009)
-    stats["폐차조건부"] = sum(1 for v in cars if "폐차" in (v["row"].get("onbidCltrNm") or ""))
+    stats["폐차조건부"] = sum(1 for v in g.values() if "폐차" in (v["row"].get("onbidCltrNm") or ""))
     return cars[:C.DETAIL_C], stats, cars
 
 
@@ -237,13 +315,195 @@ def build_A(items, today):
             "favor_flags": [f for f in FAVOR if f in text],
             "share_ratio": ratio,
             "current_round": cur, "next_round": nxt,
-            "budget_entry": next((s for s in sched if s["price"] <= C.BUDGET_RLST), None),
+            "dist": _dist(it["row"]) if it.get("row") else None,
         })
+        out[-1]["exit"] = exit_numbers(out[-1])
+    # 위험 높음은 뒤로 → 산본에서 가까운 구간 → 리스크 → 실제 이용 중인 땅 먼저 → 지목 → 가격
+    return sort_A(out)
+
+
+def _text_of(it):
+    st = it.get("statement") or {}
+    kv = it.get("kv") or {}
+    parts = (it.get("notes") or []) + (st.get("note") or []) + (st.get("keep") or []) + (st.get("surface") or [])
+    parts += [kv.get(k, "") for k in ("이용 현황", "이용상태", "기타사항", "위치 및 주위환경")]
+    return " ".join(parts)
+
+
+def _deposits(it):
+    """임대차 신고 행에서 보증금 숫자(원)를 모은다."""
+    out = []
+    for r in it.get("lease") or []:
+        if r and r[0] == "임차인":
+            for c in r[2:4]:
+                m = re.fullmatch(r"[\d,]{4,}", c or "")
+                if m:
+                    out.append(int(c.replace(",", "")))
+                    break
+    return out
+
+
+def flags_D(it):
+    """단독 토지·건물의 위험 신호. [(심각도 'R'위험/'Y'확인/'G'참고, 설명)]."""
+    t = _text_of(it)
+    st = it.get("statement") or {}
+    f = []
+    dep = _deposits(it)
+    movein = [r for r in (it.get("occ") or []) if r and r[0] == "전입세대주"]
+    if dep:
+        f.append(("R", f"임차인 신고(보증금 합계 {sum(dep):,}원) — 대항력 있으면 낙찰자가 인수"))
+    if movein:
+        f.append(("R", f"전입세대 {len(movein)}명(명도·인수 확인)"))
+    if not dep and not movein and (st.get("occupancy_rows") or st.get("lease_rows")):
+        f.append(("R", "명세서에 점유·임차 기재"))
+    if st.get("keep"):
+        f.append(("R", "명세서 인수권리: " + " / ".join(st["keep"])[:80]))
+    if st.get("surface"):
+        f.append(("R", "지상권 개요 기재"))
+    for pat, msg, sev in ((r"건물만의 매각|건물만 매각", "건물만 매각(대지는 제3자 소유)", "R"), (r"대지권미등기|대지사용권", "대지권 문제", "R"),
+                          (r"유치권", "유치권 신고", "R"), (r"법정지상권", "법정지상권", "R"), (r"가처분|가등기|전세권", "가처분·가등기·전세권", "R"),
+                          (r"위반건축물", "위반건축물", "Y"), (r"관리비", "관리비 체납 확인 필요", "Y"), (NOT_LANDLOCKED, "맹지", "Y"), (GRAVE_REAL, "분묘", "Y"), (GRAVE_MAYBE, "분묘 소재 가능성(유의 문구)", "G"),
+                          (r"농지취득자격", "농지취득자격증명 필요", "Y"), (r"인수부담", "매수인 인수부담 가능 문구", "Y"), (r"신탁", "신탁 압류재산", "Y"),
+                          (r"구분점포.{0,20}요건|경계표지", "구분점포 요건 미비 문구", "Y"), (r"제시외", "제시외 건물·수목", "Y"),
+                          (r"현황\s*[\"“]?(도로|구거)", "현황이 도로·구거(사용수익 제한)", "Y"), (r"지분", "지분 문구", "Y")):
+        if re.search(pat, t):
+            f.append((sev, msg))
+    for r in it.get("reg") or []:
+        if r and r[1] in ("가등기", "가처분", "전세권", "지상권", "임차권등기", "지역권"):
+            f.append(("R", f"등기: {r[1]}"))
+    if (it.get("kv") or {}).get("이용상태", "") and re.search(r"이용중|영업|매장", (it.get("kv") or {}).get("이용상태", "")) and not dep:
+        f.append(("Y", "사용 중으로 기재 — 점유자·임차 여부 확인"))
+    if not st.get("available"):
+        f.append(("Y", "공매재산명세서 미공개(입찰 임박 시 재확인)"))
+    seen, out = set(), []
+    for sev, msg in f:
+        if msg not in seen:
+            seen.add(msg)
+            out.append((sev, msg))
+    return out
+
+
+def build_D(items, today):
+    out = []
+    for it in items:
+        fl = flags_D(it)
+        grade = "높음" if any(s == "R" for s, _ in fl) else "중간" if any(s == "Y" for s, _ in fl) else "낮음"
+        sched = it.get("schedule") or []
+        cur = next((s for s in sched if s["no"].split("/")[0] == (it.get("round") or "").split("/")[0]), None)
+        appr, price = it.get("appraisal") or 0, it.get("price") or 0
+        row = it.get("row") or {}
+        dep = _deposits(it)
+        out.append({**it, "grade": grade, "risk_flags": fl, "dist": _dist(row), "current_round": cur,
+                    "next_round": next_round(sched, it.get("round")),
+                    "ratio": round(price / appr * 100) if appr and price else None,
+                    "fails_n": int(row.get("uscbdCnt") or 0), "deposit_sum": sum(dep) if dep else 0,
+                    "dup": it.get("dup", 0)})
+    order = {"낮음": 0, "중간": 1, "높음": 2}
+    out.sort(key=lambda x: (x["grade"] == "높음", geo.band_idx(x["dist"]), order[x["grade"]], x.get("price") or 0))
+    return out
+
+
+GRAVE_REAL = r"분묘(?![^.\n]{0,14}가능성)(?![^.\n]{0,6}없)"
+GRAVE_MAYBE = r"분묘[^.\n]{0,14}가능성"
+NOT_LANDLOCKED = r"맹지(?!\s*(가\s*)?(아니|아님))"
+APPR_SIGNALS = (
+    (NOT_LANDLOCKED, "맹지", "R"),
+    (r"급경사", "급경사", "Y"),
+    (r"(차량|자동차)\s*(접근|진입|출입)[^.\n]{0,8}(불가|곤란|어려)", "차량 접근 불가", "Y"),
+    (r"(지목은|지목상)[^\n]{0,30}현황은?\s*[「\"“'\[]?\s*(전|답|과수원|밭)", "지목은 대지 등이나 현황은 전·답(경작 중)", "F"),
+    (GRAVE_REAL, "분묘", "Y"),
+    (GRAVE_MAYBE, "분묘 소재 가능성(유의 문구)", "I"),
+    (r"제시외", "제시외 건물·수목", "Y"),
+)
+# 인근 사례 지가표 줄('… 맹지 26,700')은 이 물건의 상태가 아니다
+APPR_SKIP = re.compile(r"기타규제|접근성\s*및|접근조건|가로조건|접근\s*환경|획지|격차율|요인비교|\d{2,3}(,\d{3})*\s*$")
+
+
+def appraisal_signals(path):
+    """감정평가서 본문(appraisal.txt)에서 맹지·급경사·접근불가·현황 농지·분묘 줄을 뽑는다.
+    루틴 모델이 사진만 보고 지형을 잘못 쓰는 일(2026-10-11 검증에서 확인)을 막으려고 코드가 먼저 보여 준다."""
+    try:
+        text = open(path, encoding="utf-8", errors="ignore").read()
+    except (OSError, TypeError):
+        return [], []
+    flags, lines, seen = [], [], set()
+    for ln in text.split("\n"):
+        t = re.sub(r"\s+", " ", ln).strip()
+        if not t or APPR_SKIP.search(t):
+            continue
+        for pat, msg, sev in APPR_SIGNALS:
+            if re.search(pat, t):
+                if msg not in seen:
+                    seen.add(msg)
+                    flags.append((sev, msg))
+                if len(lines) < 8 and t not in lines:
+                    lines.append(t[:170])
+    return flags, lines
+
+
+def exit_numbers(it):
+    """KNOWLEDGE 6-A 숫자를 코드로 계산해 모델이 어림하다 틀리지 않게 한다. 감정가는 이미 지분 감정가라 지분비율을 다시 곱하지 않는다.
+    출구 상한은 시세 대신 감정가를 넣은 '위쪽 한계'다(감정평가서의 낮은 지가 자료가 있으면 더 낮아질 수 있다)."""
+    appr, price = it.get("appraisal") or 0, it.get("price") or 0
+    out = {"budget_cap": int((C.BUDGET_RLST - 50_000) / 1.046)}
+    if appr:
+        out["exit_cap"] = int((appr * 0.7 - 50_000 - 30_000 - 300_000) / 1.046)
+    if appr and price:
+        out["loss"] = int(price * 1.046 + 50_000 - appr * 0.2)          # 못 팔고 지분 매입업체에 감정가의 20%로 넘길 때
+    cap = out.get("exit_cap")
+    if cap and cap > 0:
+        sched = it.get("schedule") or []
+        cur = (it.get("round") or "").split("/")[0]
+        after, first = False, None
+        for r in sched:
+            if r["no"].split("/")[0] == cur:
+                after = True
+            if after and r["price"] <= cap:
+                first = r
+                break
+        out["first_under"] = first
+    return out
+
+
+def apply_appraisal(it, kind):
+    """사진·감정평가서를 받은 뒤 감정평가서 본문 신호를 등급과 위험 신호에 반영한다. kind: 'A'(지분) | 'D'(단독).
+    신호 심각도: R 위험 / Y 확인 / I 참고(일반 유의 문구, 등급 영향 없음) / F 현황 농지(위험 처리)."""
+    path = ((it.get("media") or {}).get("appraisal") or {}).get("text")
+    flags, lines = appraisal_signals(path) if path else ([], [])
+    it["appr_excerpt"] = lines
+    if kind == "A":
+        fl = [("R" if sv == "F" else sv, m) for sv, m in flags]
+        it["appr_flags"] = fl
+        if any(sv == "R" for sv, _ in fl):
+            it["grade"] = "높음"
+        elif any(sv == "Y" for sv, _ in fl) and it.get("grade") == "낮음":
+            it["grade"] = "중간"
+        it["bad_exit"] = any(m in ("맹지", "분묘") for _, m in fl) or any(
+            re.search(NOT_LANDLOCKED + "|" + GRAVE_REAL, f) for f in (it.get("notes") or []))
+    else:
+        rf = list(it.get("risk_flags") or [])
+        have = {m for _, m in rf}
+        for sv, m in flags:
+            sv = "R" if sv == "F" else "Y" if (m == "맹지") else sv     # 단독 소유 맹지는 인접지주에게 팔 길이 있어 확인 수준
+            if sv == "I":
+                sv = "G"
+            if "감정평가서: " + m not in have and m not in have:
+                rf.append((sv, "감정평가서: " + m))
+        it["risk_flags"] = rf
+        it["grade"] = "높음" if any(sv == "R" for sv, _ in rf) else "중간" if any(sv == "Y" for sv, _ in rf) else "낮음"
+    return it
+
+
+def sort_A(items):
     order = {"낮음": 0, "중간": 1, "높음": 2}
     cls = {"우선": 0, "기타토지": 1, "농지": 2, "건물": 3}
-    # 리스크 → (같은 등급 안에서) 실제 이용 중인 땅 먼저 → 지목 → 가격
-    out.sort(key=lambda x: (order[x["grade"]], x["natural_hint"], cls.get(x["land_class"], 9), x.get("price") or 0))
-    return out
+    return sorted(items, key=lambda x: (x["grade"] == "높음", geo.band_idx(x.get("dist")), order[x["grade"]], x.get("natural_hint", False),
+                                        cls.get(x.get("land_class"), 9), x.get("price") or 0))
+
+
+def sort_D(items):
+    order = {"낮음": 0, "중간": 1, "높음": 2}
+    return sorted(items, key=lambda x: (x["grade"] == "높음", geo.band_idx(x.get("dist")), order[x["grade"]], x.get("price") or 0))
 
 
 def display_name_B(it):
@@ -275,6 +535,8 @@ def build_B(items):
             flags.append("보증서·케이스 없음")
         if "일괄" in text or sum(int(n) for n in re.findall(r"(\d+)\s*점", text)) > 1:
             flags.append("여러 점 일괄")
+        if re.search(C.MVAST_BRAND_BAG + r"|롤렉스|오메가|위블로|태그호이어|IWC|파텍|예거", text):
+            flags.append("명품: 정품 감정서·위조품 보상 조항이 공고에 없으면 입찰 금지(KNOWLEDGE 2-11)")
         place = kv.get("보관장소상세") or kv.get("지번") or ""
         if place in ("", "-"):
             m = re.search(r"^(.*?보관)", it.get("name") or "")
@@ -318,7 +580,10 @@ def build_C(items):
         sub = subsidy.estimate(fuel=fuel, year=year, cc=cc, category=row.get("ctgrFullNm") or "", km=km,
                                flags=flags, name=it.get("name") or "",
                                value_proxy=it.get("appraisal") or it.get("price"))
-        out.append({**it, "fuel": fuel, "year": year, "km": km, "cc": cc, "flags": flags, "subsidy": sub,
+        d = _dist(row)
+        out.append({**it, "fuel": fuel, "year": year, "km": km, "cc": cc, "flags": flags, "subsidy": sub, "dist": d,
+                    "assess": carfilter.assess(row.get("onbidCltrNm"), row.get("ctgrFullNm"), it.get("price") or row.get("lowstBidPrc") or 0,
+                                               row.get("sidoEmd"), d),
                     "place": kv.get("보관장소상세") or kv.get("지번") or row.get("sidoSgkEmd"),
                     "plate": kv.get("차량번호")})
     def key(x):
@@ -329,8 +594,7 @@ def build_C(items):
         subsidy_cand = s.get("eligible") in ("가능", "확인필요")
         cat = row.get("ctgrFullNm") or ""
         passenger = any(k in cat for k in ("승용", "SUV", "승합"))
-        near = sido(row) in C.RLST_REGIONS
         restricted = row.get("cptnMtdNm") == "제한경쟁"
-        return (blocked, not subsidy_cand, warn, restricted, not passenger, not near, x.get("price") or 0)
+        return (blocked, geo.band_idx(x.get("dist")), not subsidy_cand, warn, restricted, not passenger, x.get("price") or 0)
     out.sort(key=key)
     return out

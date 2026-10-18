@@ -16,7 +16,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = os.environ.get("ONBID_STATE") or os.path.join(HERE, "state", "tracked.json")
-TYPE = {"A": "0001", "B": "0003", "C": "0002"}
+TYPE = {"A": "0001", "B": "0003", "C": "0002", "D": "0001"}
 FINAL = ("낙찰", "낙찰(낙찰후취소)", "취소")
 OPEN_STATES = ("입찰마감", "개찰중", "개찰미진행", "입찰진행중", "입찰준비중")
 KEEP_DAYS = 45          # 마지막으로 본 날부터 이만큼 지나면 추적을 끝낸다
@@ -156,12 +156,12 @@ NOISE = re.compile(r"안저|감마|의료|내시경|초음파|CCTV|블랙박스|
 LOT = re.compile(r"등\s*\d+\s*(점|종|대|개|건)|외\s*\d*\s*(점|종|대|개|건)|일괄|[^,]+,[^,]+,")
 
 
-def comps_summary(rows, exclude=None, limit=5, price=None):
+def comps_summary(rows, exclude=None, limit=5, price=None, window=5):
     """낙찰 건만 골라 최근순 요약 + 낙찰가율 중앙값.
     의료·방송 장비, 여러 물건 묶음, 이번 물건과 최저가가 5배 넘게 차이 나는 건은 뺀다. 낙찰가율이 3건 미만이면 중앙값을 내지 않는다."""
     def comparable(r):
         low = _money(r.get("lowstBidPrc"))
-        return not (price and low and not price / 5 <= low <= price * 5)
+        return not (price and low and not price / window <= low <= price * window)
     sold = [r for r in rows or [] if r.get("pbctStatNm") == "낙찰" and _money(r.get("onbidBidAmt"))
             and r.get("scrnIndctCltrMngNo") != exclude and r.get("dspsMthodCdNm") in (None, "매각")
             and not NOISE.search((r.get("onbidCltrNm") or "") + (r.get("ctgrFullNm") or ""))

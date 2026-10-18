@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""온비드 주간 스카우팅 실행기.
+"""온비드 스카우팅 실행기(평일 저녁 루틴이 쓴다).
 
   python3 -m onbid.run --out out/onbid            # 전체(검색→상세→사진·감정평가서→초안)
   python3 -m onbid.run --out out/onbid --skip-search   # 검색 결과 재사용
@@ -94,12 +94,13 @@ def main():
 
     # 2. 1차 선별
     pool_a, stats_a = A.select_A(search["A"])
+    pool_d, stats_d = A.select_D(search["A"])
     pool_b, stats_b, all_b = A.select_B(search["B"])
     pool_c, stats_c, all_c = A.select_C(search["C"])
-    log(f"선별: A {len(pool_a)}건, B {len(pool_b)}건, C {len(pool_c)}건")
+    log(f"선별: A {len(pool_a)}건, D {len(pool_d)}건, B {len(pool_b)}건, C {len(pool_c)}건 (자동차 실효없음 제외 {sum(stats_c['실효없음_제외'].values())}건)")
 
     # 3. 상세 수집
-    rows = [v["row"] for v in pool_a + pool_b + pool_c]
+    rows = [v["row"] for v in pool_a + pool_d + pool_b + pool_c]
     run_details(rows, items_dir, args.workers)
 
     # 4. 파싱
@@ -112,7 +113,7 @@ def main():
                 continue
             it = parse.parse_item(mng, items_dir)
             it.update(row=v["row"], rounds=v["rounds"], link=A.link(v["row"]),
-                      land_class=v.get("land_class"), score=v.get("score"), prescore=v.get("prescore"))
+                      land_class=v.get("land_class"), score=v.get("score"), prescore=v.get("prescore"), dup=v.get("dup", 0))
             # 일부 공고(불용품 등)는 상세 화면 배치가 달라 가격을 못 읽는다 — 검색 목록 값으로 채운다
             if not it.get("price"):
                 it["price"] = v["row"].get("lowstBidPrc")
@@ -122,17 +123,25 @@ def main():
         return got
 
     ta = A.build_A(load(pool_a), today)
+    td = A.build_D(load(pool_d), today)
     tb = A.build_B(load(pool_b))
     tc = A.build_C(load(pool_c))
-    missing = {"A": len(pool_a) - len(ta), "B": len(pool_b) - len(tb), "C": len(pool_c) - len(tc)}
+    missing = {"A": len(pool_a) - len(ta), "D": len(pool_d) - len(td), "B": len(pool_b) - len(tb), "C": len(pool_c) - len(tc)}
 
     # 5. 사진·감정평가서 + 링크 확인 (리포트에 오를 만한 후보만)
-    shortlist = ta[:C.MEDIA_A] + tb[:C.MEDIA_B] + tc[:C.MEDIA_C]
+    shortlist = ta[:C.MEDIA_A] + td[:C.MEDIA_D] + tb[:C.MEDIA_B] + tc[:C.MEDIA_C]
     for it in shortlist:
         it["link_ok"] = verify_link(it["link"], it["mng"])
         if not args.no_media:
             log(f"사진·감정평가서: {it['mng']}")
             it["media"] = media.collect(it, media_dir)
+    # 감정평가서 본문(맹지·급경사·현황 농지·분묘)을 읽어 등급을 다시 매기고, 사진을 본 뒤의 순서로 정렬한다
+    for it in ta[:C.MEDIA_A]:
+        A.apply_appraisal(it, "A")
+    for it in td[:C.MEDIA_D]:
+        A.apply_appraisal(it, "D")
+    ta = A.sort_A(ta[:C.MEDIA_A]) + ta[C.MEDIA_A:]
+    td = A.sort_D(td[:C.MEDIA_D]) + td[C.MEDIA_D:]
 
     # 6. 추적: 지난 후보의 낙찰 결과 + 오늘 후보와 같은 종류의 최근 낙찰 사례
     st = track.load()
@@ -157,19 +166,19 @@ def main():
         for it in tb[:C.MEDIA_B] + tc[:C.MEDIA_C]:
             if it.get("comp_key"):
                 it["comps"] = track.comps_summary(res["keywords"].get(it["comp_key"]), exclude=it["mng"],
-                                                  price=it.get("price"))
+                                                  price=it.get("price"), window=1.7 if it["comp_key"].startswith("C:") else 5)
     tracking = report.tracking_data(st, changed, due_items, res is not None)
-    for it in ta + tb + tc:
+    for it in ta + td + tb + tc:
         e = st["items"].get(it["mng"])
         it["seen"] = {"first_seen": e.get("first_seen"), "reported": e.get("reported") or []} if e else None
-    track.add_candidates(st, today.isoformat(), {"A": ta[:C.MEDIA_A], "B": tb[:C.MEDIA_B], "C": tc[:C.MEDIA_C]})
+    track.add_candidates(st, today.isoformat(), {"A": ta[:C.MEDIA_A], "D": td[:C.MEDIA_D], "B": tb[:C.MEDIA_B], "C": tc[:C.MEDIA_C]})
     track.prune(st, today.isoformat())
     if not args.no_state:
         track.save(st)
 
     data = {"today": today.isoformat(), "bid_window": search["A"].get("bidWindow"),
-            "stats": {"A": stats_a, "B": stats_b, "C": stats_c}, "missing_details": missing,
-            "tracking": tracking, "A": ta, "B": tb, "C": tc}
+            "stats": {"A": stats_a, "B": stats_b, "C": stats_c, "D": stats_d}, "missing_details": missing,
+            "tracking": tracking, "A": ta, "D": td, "B": tb, "C": tc}
     with open(os.path.join(out, "candidates.json"), "w") as f:
         json.dump(data, f, ensure_ascii=False, indent=1, default=str)
     report.write_draft(out, data)

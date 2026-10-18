@@ -4,6 +4,7 @@ import os
 import re
 
 from . import config as C
+from . import geo
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯"
 
@@ -122,6 +123,20 @@ def comps_line(it):
     return f"최근 90일 '{it['comp_key'].split(':', 1)[1]}' 비슷한 가격대 낙찰 {c['n_sold']}건, {med} — {ex}"
 
 
+def place_line(it):
+    row = it.get("row") or {}
+    d, b = geo.of(row)
+    where = row.get("sidoSgkEmd") or "-"
+    if d is None:
+        return f"- 📍 위치 {where} (산본까지 거리 미상)"
+    return f"- 📍 {where} — 산본에서 직선 약 **{d}km** ({b})"
+
+
+def _tight_notes(it, n=4, width=170):
+    notes = it.get("notes") or (it.get("statement") or {}).get("note") or []
+    return [f"  > {x[:width]}" for x in notes[:n]] or ["  > (없음)"]
+
+
 def _sched_table(it):
     sched = it.get("schedule") or []
     if not sched:
@@ -140,6 +155,43 @@ def _sched_table(it):
     return lines
 
 
+def appr_lines(it):
+    """감정평가서 본문에서 코드가 뽑은 맹지·급경사·접근불가·현황 농지·분묘·제시외 줄. 모델이 사진만 보고 지형을 단정하지 않게 먼저 보여 준다."""
+    ex = it.get("appr_excerpt") or []
+    ap = (it.get("media") or {}).get("appraisal") or {}
+    if ex:
+        return ["- 📄 감정평가서 본문 신호(코드가 뽑은 원문 — 판단에 그대로 쓸 것):"] + [f"  > {x}" for x in ex]
+    if ap.get("text"):
+        return ["- 📄 감정평가서 본문 신호: 맹지·급경사·접근불가·현황 농지·분묘·제시외 문구 없음"]
+    return []
+
+
+def exit_lines(it):
+    """KNOWLEDGE 6-A의 예산 상한·출구 상한·손절을 코드가 계산한 값. 리포트에는 이 숫자를 그대로 옮긴다."""
+    e = it.get("exit") or {}
+    if not e:
+        return []
+    L = [f"- 🧮 입찰 상한 계산(코드 산출 — 그대로 옮길 것): 예산 상한 **{e['budget_cap']:,}원**"
+         " (1,000만 − 등기 실비 5만, ÷1.046)"]
+    cap = e.get("exit_cap")
+    if cap is not None:
+        if cap <= 0:
+            L.append("  - 출구 상한: 감정가×0.7에서 실비·목표이익 35만원을 빼면 남는 돈이 없다 → 어떤 가격이든 수익이 나지 않는 구조")
+        else:
+            L.append(f"  - 출구 상한 **{cap:,}원** (감정가×0.7 − 실비 8만 − 목표이익 30만, ÷1.046. 시세를 모르므로 감정가를 넣은 '위쪽 한계'이고 실제 시세가 낮으면 더 내려간다)")
+            fu = e.get("first_under")
+            if fu:
+                now = (it.get("round") or "").split("/")[0] == fu["no"].split("/")[0]
+                L.append(f"  - 출구 상한 이하가 되는 첫 회차: {fu['no']}회 {fu['start'][:10]} {fu['price']:,}원" + (" (이번 회차)" if now else ""))
+            else:
+                L.append("  - 등록된 회차표에는 출구 상한 이하 회차가 없다")
+    loss = e.get("loss")
+    if loss is not None:
+        L.append(f"  - 못 팔고 지분 매입업체에 감정가의 20%로 넘길 때 현재가 낙찰 시 손실 약 **{loss:,}원**" if loss > 0
+                 else "  - 못 팔고 감정가의 20%로 넘겨도 현재가는 회수된다(손실 없음, 단 20%는 미확인 가정)")
+    return L
+
+
 def block_A(i, it, today):
     b = it["basis"]
     area = it.get("area") or {}
@@ -149,11 +201,11 @@ def block_A(i, it, today):
          f"- 🔗 [온비드 상세]({it['link']})" + ("" if it.get("link_ok") else " (⚠ 링크 확인 실패 — 물건관리번호로 검색)"),
          f"- 물건관리번호 {it['mng']} / 지목 {area.get('use', '-')} / 지분 {area.get('area', '-')} — {area.get('share_note', '')}"
          + (f" (**{ratio * 100:.1f}%**)" if ratio else ""),
+         place_line(it),
          f"- 공고 {it.get('org')} {it.get('branch') or ''} / 의뢰 {it.get('client') or '-'}",
          f"- 감정가 {won(it.get('appraisal'))} → 현재({it.get('round')}회) **{won(it.get('price'))}** "
          f"(감정가의 {pct(it.get('price'), it.get('appraisal'))}, {it.get('fails')} 유찰), 입찰 {dday(it, today)}",
-         f"  - 다음 회차: " + (f"{nr['no']}회 {nr['start'][:10]} **{nr['price']:,}원**" if nr else "공고상 미등록(유찰 시 재공고 확인)")
-         + f" / 예산 진입: " + (f"{be['no']}회({be['start'][:10]})부터" if be else "미진입"),
+         f"  - 다음 회차: " + (f"{nr['no']}회 {nr['start'][:10]} **{nr['price']:,}원**" if nr else "공고상 미등록(유찰 시 재공고 확인)"),
          *_sched_table(it),
          f"- 농지여부: " + ("⚠농지취득자격증명 필요" if it["land_class"] == "농지" else f"해당 없음({area.get('use', '')})"),
          ]
@@ -184,11 +236,22 @@ def block_A(i, it, today):
     kv = it.get("kv", {})
     L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:120]}」"
              + (" → 자연림 기재(그냥 산일 가능성)" if it.get("natural_hint") else ""))
+    L += appr_lines(it)
+    if any("현황은 전·답" in m or "현황은 전" in m for _, m in it.get("appr_flags") or []):
+        L.append("- ⚠ 지목은 농지가 아니지만 감정평가서상 현황이 전·답(경작 중) — 농지법은 지목과 무관하게 실제 경작지를 농지로 보므로 농지취득자격증명이 필요할 수 있다. 관할 읍·면·동에 확인 전에는 위험 높음")
+    if it.get("bad_exit"):
+        L.append("- ⛔ 맹지·분묘가 감정평가서나 유의사항에 나온다. 위 원문 줄로 실제 맹지·분묘 딸린 지분인지 확인하고, 맞으면 되팔 상대가 거의 없으니 **입찰을 권하지 않는다**(KNOWLEDGE 6-A 6항: 맹지 단독 소유도 감정가 30%가 한도)")
+    L += exit_lines(it)
     L.append("- 📷 사진·도면 판단: ⟪감정평가서 현장사진·지적도·위성사진을 보고: 그냥 산(자연림)인지 / 관리된 땅(정리·경작·포장·건물·도로 이용)인지, 진입로·경사·분묘·경계 표식 등⟫")
     L += _media_lines(it)
     L.append(f"- 종합 리스크: **{it['grade']}**")
     L.append("- 한줄평: ⟪…⟫")
     return "\n".join(L)
+
+
+def _km_tag(it):
+    d, _ = geo.of(it.get("row") or {})
+    return f"산본 {d}km · " if d is not None else ""
 
 
 def block_B_row(it, today):
@@ -197,7 +260,7 @@ def block_B_row(it, today):
     appr = it.get("appraisal")
     price = it.get("price")
     return (f"| [{name}]({it['link']}) `{seen_tag(it, today)}` | {it['mng']} | {won(price)}" + (f" (감정 {appr:,})" if appr and appr != price else "")
-            + f" | {dday(it, today)} | ⟪사진 상태판단⟫ | {it.get('org')} / 보관 {it.get('place', '')[:40]}"
+            + f" | {dday(it, today)} | ⟪사진 상태판단⟫ | {_km_tag(it)}{it.get('org')} / 보관 {it.get('place', '')[:40]}"
             + (f"; {flags}" if flags else "") + " |")
 
 
@@ -210,9 +273,15 @@ def block_C(i, it, today):
          f"- 🔗 [온비드 상세]({it['link']})" + ("" if it.get("link_ok") else " (⚠ 링크 확인 실패)"),
          f"- 물건관리번호 {it['mng']} / {kv.get('제조사', '')} {kv.get('모델명') or kv.get('차종', '')} / {it.get('year')}년식 / "
          f"{it.get('fuel')} / {cc} / {km} / 차량번호 {it.get('plate') or '-'}",
+         place_line(it),
          f"- 가격: 감정가 {won(it.get('appraisal'))} → 현재 {won(it.get('price'))} ({it.get('round')}회, 유찰 {it.get('fails')}), 입찰 {dday(it, today)}",
          f"- 보관/인도: {it.get('place')} / 인도책임 {it.get('handover') or '-'} / 공고 {it.get('org')} {it.get('branch') or ''}",
          ]
+    a = it.get("assess")
+    if a:
+        r3 = lambda x: int(round(x, -3))
+        L.append(f"- 💰 본전 시세: 예상 낙찰가 {won(r3(a['clear']))}(최저가 구간 낙찰가율 중앙값) + 취득세·탁송·상품화·예비비 {won(r3(a['extra']))} "
+                 f"= **{won(int(round(a['breakeven'], -4)))} 이상에 팔려야 본전**(낙찰가 대비 +{a['need_pct']:.0f}%). 엔카·헤이딜러 시세와 비교 ⟪시세 확인 결과⟫")
     if it.get("flags"):
         L.append(f"- ⚠ {', '.join(it['flags'])}")
     L.append(f"- 조기폐차 지원금: 등급 {s.get('grade_est')} / 대상 {s.get('eligible')}"
@@ -234,21 +303,58 @@ def block_C(i, it, today):
     return "\n".join(L)
 
 
+def block_D(i, it, today):
+    area = it.get("area") or {}
+    nr = it.get("next_round")
+    icon = {"R": "🔴", "Y": "🟡", "G": "🟢"}
+    L = [f"### {CIRCLED[i]} {it.get('name')} `{seen_tag(it, today)}`",
+         f"- 🔗 [온비드 상세]({it['link']})" + ("" if it.get("link_ok") else " (⚠ 링크 확인 실패 — 물건관리번호로 검색)"),
+         f"- 물건관리번호 {it['mng']} / {(it.get('row') or {}).get('ctgrFullNm', '-')} / 면적 {area.get('area', '-')} {area.get('share_note', '') or ''}"
+         + (f" / 같은 건물·가격 호실 {it['dup']}개 더 있음" if it.get("dup") else ""),
+         place_line(it),
+         f"- 공고 {it.get('org')} {it.get('branch') or ''}",
+         f"- 감정가 {won(it.get('appraisal'))} → 현재({it.get('round')}회) **{won(it.get('price'))}** "
+         f"(감정가의 {pct(it.get('price'), it.get('appraisal'))}, {it.get('fails')} 유찰), 입찰 {dday(it, today)}",
+         f"  - 다음 회차: " + (f"{nr['no']}회 {nr['start'][:10]} **{nr['price']:,}원**" if nr else "공고상 미등록(유찰 시 재공고 확인)"),
+         *_sched_table(it)]
+    if it.get("ratio") is not None and it["ratio"] <= 15:
+        if it.get("land_class") == "건물":
+            L.append(f"- ⚠ 최저가가 감정가의 {it['ratio']}%({it.get('fails')} 유찰): 감정이 오래됐거나 **인수해야 할 돈(임차보증금·체납관리비)·점유 문제**가 값에 반영된 경우가 많다. 낙찰가가 아니라 총부담으로 비교할 것")
+        else:
+            L.append(f"- ⚠ 최저가가 감정가의 {it['ratio']}%({it.get('fails')} 유찰): 회차마다 기계적으로 내려온 값이다. 안 팔린 이유(맹지·진입로·분묘·경사·경계)를 먼저 확인할 것")
+    if it.get("deposit_sum"):
+        L.append(f"- ⚠ 총부담 최대치(대항력 임차인 보증금을 전부 인수하는 최악의 경우): {won((it.get('price') or 0) + it['deposit_sum'])} "
+                 f"(최저가 {won(it.get('price'))} + 보증금 {won(it['deposit_sum'])})")
+    L.append("- 위험 신호: " + (" / ".join(f"{icon[s]} {m}" for s, m in it.get("risk_flags", [])) or "🟢 유의사항·명세서에 위험 문구 없음(안전하다는 뜻은 아님)"))
+    L.append("- 유의사항 원문:")
+    L += _tight_notes(it)
+    kv = it.get("kv", {})
+    L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')[:80]}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:100]}」")
+    L += appr_lines(it)
+    L.append("- 📷 사진·도면 판단: ⟪감정평가서·온비드 사진을 보고: 실제 쓰이는 땅/건물인지, 출입·경계·점유 흔적, 공실 여부⟫")
+    L += _media_lines(it)
+    L.append("- 💰 출구: ⟪되팔 상대(이웃 땅 주인·공유자·세입자 등)와 근거 시세, 건물이면 같은 동네 월세 1~2건(WebSearch) 확인 결과. 근거가 없으면 '시세 확인 필요'⟫")
+    L.append(f"- 종합 리스크: **{it['grade']}**")
+    L.append("- 한줄평: ⟪…⟫")
+    return "\n".join(L)
+
+
 def write_draft(out, data):
     today = datetime.date.fromisoformat(data["today"])
     st = data["stats"]
-    sa, sb, sc = st["A"], st["B"], st["C"]
+    sa, sb, sc, sd = st["A"], st["B"], st["C"], st["D"]
     L = [f"# 📋 온비드 스카우팅 + 권리분석 ({data['today']} 기준) — 초안",
-         f"입찰기간 검색창: {data.get('bid_window')}",
+         f"입찰기간 검색창: {data.get('bid_window')} · 기준 위치: {C.HOME}(직선거리 대략, 가까운 순으로 정렬)",
          "",
-         "> 작성 지침: ⟪…⟫를 사진·감정평가서를 직접 보고 채운다. Track A는 아래 후보 중 상위 5건, Track B는 10건, "
+         "> 작성 지침: ⟪…⟫를 사진·감정평가서를 직접 보고 채운다. Track A는 아래 후보 중 상위 5건, Track D는 5건, Track B는 10건, "
          "Track C는 5건만 최종 리포트에 남긴다. 사진상 문제가 드러난 후보는 빼고 다음 후보로 대체한다. "
-         "`🆕`는 처음 본 물건, `↻ MM/DD 보고`는 그날 리포트에 실었던 물건, `검토 MM/DD~`는 후보로만 봤던 물건.",
+         "`🆕`는 처음 본 물건, `↻ MM/DD 보고`는 그날 리포트에 실었던 물건, `검토 MM/DD~`는 후보로만 봤던 물건. "
+         "최저입찰가 1,000만원 이하 전국이며, 어느 것도 수익이 보장된 물건이 아니다.",
          "",
          *tracking_section(data.get("tracking")),
-         f"## Track A: 지분경매 (조건 충족 {sa['지분물건']}건 → 권역 내 {sa['권역내(수도권·강원·충청)']}건 → "
-         f"권역 내 압류재산 {sa['권역내_압류재산']}건, 상세분석 {sa['상세분석']}건)",
-         f"재산유형별 {sa['재산유형별']} / 권역 내 압류재산 지목별 {sa['권역내_압류재산_지목별']}",
+         f"## Track A: 지분 부동산 (부동산 {sa['부동산물건']}건 중 지분 {sa['지분물건']}건 → 압류재산 {sa['압류재산_지분']}건"
+         f"(산본 {C.NEAR_KM}km 이내 {sa['산본_50km_이내']}건), 상세분석 {sa['상세분석']}건)",
+         f"재산유형별 {sa['재산유형별']} / 지목별 {sa['지목별']}",
          ""]
     grades = {}
     for it in data["A"]:
@@ -257,8 +363,18 @@ def write_draft(out, data):
     L.append("")
     for i, it in enumerate(data["A"][:C.MEDIA_A]):
         L += [block_A(i, it, today), ""]
-    L += [f"## Track B: 동산 재판매 (동산 {sb['동산물건']}건 중 키워드 충족 {sb['키워드충족']}건, 상세 {sb['상세분석']}건)",
-          f"공고기관별 {sb['공고기관별']}", "",
+    L += [f"## Track D: 단독 소액 부동산 — 지분이 아닌 토지·건물 호실 (단독·미표시 {sd['단독·미표시']}건 → 압류재산 {sd['압류재산']}건"
+          f"(산본 {C.NEAR_KM}km 이내 {sd['산본_50km_이내']}건), 유형 {sd['유형별']}, 상세분석 {sd['상세분석']}건)",
+          "싼 건물 호실은 임차인·전입세대·인수권리·체납관리비 때문에 싼 경우가 많다. 🔴가 있으면 총부담을 다시 계산한다.", ""]
+    grades = {}
+    for it in data["D"]:
+        grades[it["grade"]] = grades.get(it["grade"], 0) + 1
+    L.append(f"상세분석 리스크 분포: {grades}")
+    L.append("")
+    for i, it in enumerate(data["D"][:C.MEDIA_D]):
+        L += [block_D(i, it, today), ""]
+    L += [f"## Track B: 동산 재판매 (동산 {sb['동산물건']}건 중 후보 {sb['후보']}건(산본 {C.NEAR_KM}km 이내 {sb['산본_50km_이내']}건), 상세 {sb['상세분석']}건)",
+          f"제외한 권리형·폐기물 등 {sb['권리형·폐기물 등 제외']}", f"공고기관별 {sb['공고기관별']}", "",
           "| 물건명 | 물건관리번호 | 최저입찰가 | 마감일(D-n) | 📷 상태판단 | 주의사항 |", "|---|---|---|---|---|---|"]
     for it in data["B"][:C.MEDIA_B]:
         L.append(block_B_row(it, today))
@@ -269,8 +385,9 @@ def write_draft(out, data):
         if cl:
             L.append(f"  - 📈 {cl}")
         L += _media_lines(it)
-    L += ["", f"## Track C: 자동차 (매각·최저입찰가 {C.CAR_MAX:,}원 이하 {sc['차량']}건, 연료별 {sc['연료별']}, "
-          f"경유 2009년식 이전 {sc['경유_2009년이전']}건, 폐차조건부 {sc['폐차조건부']}건, 상세 {sc['상세분석']}건)", ""]
+    L += ["", f"## Track C: 자동차 (최저입찰가 {C.CAR_MAX:,}원 이하 {sc['차량']}건 중 실효 없음 {sum(sc['실효없음_제외'].values())}건 제외 → 남은 {sc['남은_차량']}건, 상세 {sc['상세분석']}건)",
+          f"제외 이유별 {sc['실효없음_제외']} — 낙찰가가 시세에 붙거나 되팔 상대·운반이 막힌 물건이다(onbid/carfilter.py).",
+          f"연료별 {sc['연료별']} / 경유 2009년식 이전 {sc['경유_2009년이전']}건 / 폐차조건부 {sc['폐차조건부']}건", ""]
     for i, it in enumerate(data["C"][:C.MEDIA_C]):
         L += [block_C(i, it, today), ""]
     md = data.get("missing_details") or {}
