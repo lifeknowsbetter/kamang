@@ -37,6 +37,17 @@ python3 -m onbid.run --out out/test --skip-search --no-state   # 시험 실행(�
   (감정평가서 중 사진·도면이 든 쪽 모음), `apsl-pNN.png`(쪽별 100dpi), `appraisal.txt`(글자 층이 있을 때).
 - `onbid/state/tracked.json` — 추적 상태(저장소에 커밋). `--no-state`면 저장하지 않는다.
 
+시험(네트워크 없이 돈다. Node와 Python만 필요)
+
+```bash
+python3 -m unittest discover -s onbid/tests -t .          # 코드 시험 (2026-10-18 기준 444개, 30초 안팎)
+ONBID_FIXTURES=<수집본 폴더> python3 -m unittest discover -s onbid/tests -t .   # 실제 수집본(search_*.json, items/, media/)이 있을 때 추가로 도는 시험
+python3 -m onbid.devzone validate                          # 개발 사업 데이터 검사 (오류 0이어야 커밋)
+```
+
+수집본이 없으면 그것을 쓰는 시험은 건너뛴다(저장소에는 감정평가서·상세 원문을 넣지 않는다).
+코드를 고친 뒤에는 위 시험을 돌려 통과시킨 다음 커밋한다.
+
 ```bash
 python3 -m onbid.track mark out/onbid <물건관리번호>...  # 오늘 리포트에 실은 물건 표시
 python3 -m onbid.track show                              # 추적 현황
@@ -124,7 +135,7 @@ python3 -m onbid.track show                              # 추적 현황
   - 출구 상한 = (감정가×0.7 − 실비 5만 − 교통비 3만 − 목표이익 30만) ÷ 1.046. 감정가는 이미 지분 감정가라 지분비율을 다시 곱하지 않고,
     시세 대신 감정가를 넣은 '위쪽 한계'다(감정평가서에 낮은 지가 자료가 있으면 더 낮아진다).
   - 못 팔면 손실 = 현재가×1.046 + 5만 − 감정가×0.2(지분 매입업체에 감정가의 20%로 넘길 때. 20%는 (미확인) 가정)
-  - 출구 상한 이하가 되는 첫 회차는 온비드에 등록된 회차표에서 찾는다.
+  - 출구 상한·예산 상한 이하가 되는 첫 회차는 온비드에 등록된 회차표에서 찾는다.
 - 정렬: 위험 높음은 뒤로 → 산본에서 가까운 구간 → 리스크 → 개발 연관(동순위 보조) → 감정평가서 이용상태가 '자연림·임야 상태'가 아닌 땅 먼저
   → 지목(임야·대지·도로·구거 > 기타 토지 > 농지) → 가격. 2026-10 사진 판독에서 상위 낮음 등급 대부분이 이용 흔적 없는 맹지 자연림이었고,
   되팔 상대가 보이는 땅(옹벽·진입로·경작지·관리 분묘)은 이용상태 문구로 1차 구분이 됐다.
@@ -223,4 +234,5 @@ aea.or.kr/biz/esSubsidized.do), 자동차배출가스 등급산정기준(mecar.o
 | `onbid/knowledge/KNOWLEDGE.md` | 지식 노트(패턴·함정·비용·입찰가 규칙). "규칙 제안"은 사용자 승인 전 미적용 |
 | `onbid/knowledge/journal/` | 일별 공부 노트 |
 | `onbid/data/README.md` | 개발 사업 데이터(`devzones.json`) 스키마와 갱신 규칙 |
+| `onbid/tests/` | 코드 시험(선별·등급·감정평가서 신호·출구 계산·리포트·수집 JS·개발 연관·문서 일관성) |
 | `onbid/state/tracked.json` | 추적 상태(리포트에 실은 후보와 낙찰 결과 이력) |

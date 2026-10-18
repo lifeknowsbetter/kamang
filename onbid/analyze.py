@@ -529,6 +529,7 @@ def exit_numbers(it):
         out["loss"] = int(price * 1.046 + 50_000 - appr * 0.2)          # 못 팔고 지분 매입업체에 감정가의 20%로 넘길 때
     cap = out.get("exit_cap")
     if cap and cap > 0:
+        cap = min(cap, budget_cap)          # 출구 상한 이하여도 예산 상한을 넘는 회차는 '입찰할 수 있는 첫 회차'가 아니다
         sched = it.get("schedule") or []
         cur = (it.get("round") or "").split("/")[0]
         # 현재 회차를 회차표에서 못 찾으면(표기 불일치) 처음부터 찾는다. None으로 두면 '상한 이하 회차 없음'으로 읽힌다

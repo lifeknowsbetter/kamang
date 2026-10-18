@@ -222,7 +222,7 @@ def exit_lines(it):
     L = [f"- 🧮 입찰 상한 계산(코드 산출 — 그대로 옮길 것): 예산 상한 **{e['budget_cap']:,}원**"
          " (1,000만 − 등기 실비 5만, ÷1.046)"]
     if e.get("over_budget"):
-        L.append(f"  - ⚠ 현재 최저가가 예산 상한({e['budget_cap']:,}원)을 넘는다 — 이 가격에는 입찰할 수 없다(1,000만원 한도)")
+        L.append(f"  - ⚠ 현재 최저가가 예산 상한({e['budget_cap']:,}원)을 넘는다 — 취득세 등 약 4.6%와 등기 실비까지 더한 총 지출이 1,000만원을 넘는다(선별은 최저입찰가 기준이라 목록에는 들어왔다)")
     cap = e.get("exit_cap")
     if cap is not None:
         if cap <= 0:
@@ -232,9 +232,9 @@ def exit_lines(it):
             fu = e.get("first_under")
             if fu:
                 now = (it.get("round") or "").split("/")[0] == fu["no"].split("/")[0]
-                L.append(f"  - 출구 상한 이하가 되는 첫 회차: {fu['no']}회 {fu['start'][:10]} {fu['price']:,}원" + (" (이번 회차)" if now else ""))
+                L.append(f"  - 출구 상한·예산 상한 이하가 되는 첫 회차: {fu['no']}회 {fu['start'][:10]} {fu['price']:,}원" + (" (이번 회차)" if now else ""))
             else:
-                L.append("  - 등록된 회차표에는 출구 상한 이하 회차가 없다")
+                L.append("  - 등록된 회차표에는 출구 상한·예산 상한 이하 회차가 없다")
     loss = e.get("loss")
     if loss is not None:
         L.append(f"  - 못 팔고 지분 매입업체에 감정가의 20%로 넘길 때 현재가 낙찰 시 손실 약 **{loss:,}원**" if loss > 0
