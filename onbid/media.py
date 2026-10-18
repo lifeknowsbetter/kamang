@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw, ImageFont
 ORIGIN = "https://www.onbid.co.kr"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 MAX_PHOTOS = 12
-MAX_PDF_PAGES = 16          # 사진이 든 쪽만 골라도 너무 많으면 앞쪽부터 이만큼
+MAX_PDF_PAGES = 24          # 사진이 든 쪽만 골라도 너무 많으면 앞쪽 2/3와 뒤쪽 1/3만(스캔본은 요항표·도면이 뒤에 오는 일이 있다)
 THUMB_W = 480
 
 
@@ -127,6 +127,14 @@ def _image_pages(pdf):
     return pages
 
 
+def _pick_pages(pages):
+    """쪽이 너무 많으면 앞쪽 2/3와 뒤쪽 1/3을 남긴다. 앞쪽 16쪽만 보면 28쪽 스캔본의 요항표(22~28쪽)가 빠진다."""
+    if len(pages) <= MAX_PDF_PAGES:
+        return pages
+    head = MAX_PDF_PAGES - MAX_PDF_PAGES // 3
+    return pages[:head] + pages[-(MAX_PDF_PAGES - head):]
+
+
 def _pdf_ok(path):
     try:
         with open(path, "rb") as f:
@@ -162,7 +170,7 @@ def appraisal(item, d):
     lead = next((i + 1 for i, p in enumerate(pg) if "감정평가표" in p and "전자서명" not in p), 1)
     if lead not in pages:
         pages = [lead] + pages
-    pages = pages[:MAX_PDF_PAGES]
+    pages = _pick_pages(pages)
     rendered = []
     for p in pages:
         prefix = os.path.join(d, f"apsl-p{p:02d}")

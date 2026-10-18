@@ -355,7 +355,7 @@ def block_A(i, it, today):
     L.append("- 유의사항 원문:")
     L += [f"  > {n}" for n in notes] or ["  > (없음)"]
     if it.get("favor_flags"):
-        L.append(f"  - 플래그: {', '.join(it['favor_flags'])} → 지분 되팔기 전략에 유리한 신호")
+        L.append(f"  - 플래그: {', '.join(it['favor_flags'])} → 인접 소유자·이용자가 이해관계자일 수 있다는 단서이나 경계·점유 분쟁 소지도 있다(유리하다고 단정하지 않음)")
     if it.get("caution_flags"):
         L.append(f"  - ⚠ 현황도로 표기({', '.join(it['caution_flags'])}): 지자체 부당이득 청구는 어렵다(대법원 2016다264556) — 유리한 신호가 아니다. "
                  "되팔 민간 매수자(인접 개발 예정지 소유자 등)를 특정할 수 있을 때만 의미가 있다")
@@ -486,7 +486,8 @@ def write_draft(out, data):
     st = data["stats"]
     sa, sb, sc, sd = st["A"], st["B"], st["C"], st["D"]
     L = [f"# 📋 온비드 스카우팅 + 권리분석 ({data['today']} 기준) — 초안",
-         f"입찰기간 검색창: {_fmt_window(data.get('bid_window'))} · 기준 위치: {C.HOME}(직선거리 대략, 가까운 순으로 정렬)",
+         f"입찰기간 검색창: {_fmt_window(data.get('bid_window'))} · 기준 위치: {C.HOME}(직선거리 대략, 가까운 순으로 정렬)"
+         + (f" · 리포트 도착 전(검색 시각 +{C.CLOSE_MARGIN_MIN}분) 마감하는 물건 {data['closed_dropped']}건은 목록에서 뺐다" if data.get("closed_dropped") else ""),
          "",
          "> 작성 지침: ⟪…⟫를 사진·감정평가서를 직접 보고 채운다. Track A는 아래 후보 중 상위 5건, Track D는 5건, Track B는 10건, "
          "Track C는 5건만 최종 리포트에 남긴다. 사진상 문제가 드러난 후보는 빼고 다음 후보로 대체한다. "

@@ -42,13 +42,14 @@ class TestR1(unittest.TestCase):
         txt = report.block_A(0, a, TODAY)
         self.assertIn("⚠ 현황도로 표기", txt)
         self.assertIn("2016다264556", txt)
-        self.assertNotIn("지분 되팔기 전략에 유리한 신호", txt)
+        self.assertNotIn("이해관계자일 수 있다는 단서", txt)
 
     def test_report_keeps_favor_line_for_other_words(self):
         a = build(notes=["- 아파트 옹벽 일부 침범"])
         a["media"] = {}
         txt = report.block_A(0, a, TODAY)
-        self.assertIn("지분 되팔기 전략에 유리한 신호", txt)
+        self.assertIn("이해관계자일 수 있다는 단서", txt)
+        self.assertNotIn("유리한 신호", txt)
         self.assertNotIn("⚠ 현황도로 표기", txt)
 
     def test_grade_is_not_changed_by_caution(self):

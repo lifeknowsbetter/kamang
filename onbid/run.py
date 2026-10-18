@@ -40,6 +40,25 @@ def node(script, *args, timeout=3600):
     return subprocess.run(["node", os.path.join(JS, script), *map(str, args)], timeout=timeout)
 
 
+def drop_closed(search, cutoff):
+    """검색 결과 행 중 마감(pbctDdlnDt)이 cutoff(KST, tz 없는 datetime)보다 이른 것을 뺀다. 마감 시각을 못 읽는 행은 남긴다. 뺀 행 수를 돌려준다."""
+    n = 0
+    for k in list(search):
+        rows = (search[k] or {}).get("rows") or []
+        keep = []
+        for r in rows:
+            try:
+                dl = datetime.datetime.strptime((r.get("pbctDdlnDt") or r.get("pbctLastDdlnDt") or "")[:16], "%Y-%m-%d %H:%M")
+            except ValueError:
+                dl = None
+            if dl is not None and dl < cutoff:
+                n += 1
+            else:
+                keep.append(r)
+        search[k] = {**search[k], "rows": keep}
+    return n
+
+
 def run_details(rows, items_dir, workers):
     """상세 수집을 여러 브라우저로 나눠 돌린다. 끝나지 않은 물건은 한 번 더 시도한다."""
     for attempt in range(2):
@@ -112,6 +131,13 @@ def main():
         report.write_failure(out, today, "검색 결과 0건(빈 데이터)")
         log("검색 결과가 비어 있음 — 실패 리포트만 작성")
         return 2
+
+    # 1-1. 리포트가 닿기 전에 마감하는 물건은 뺀다. --today 로 날짜를 지정한 시험 실행은 그날 18:48(평일 루틴 시각)을 기준으로 본다.
+    base = (datetime.datetime.combine(today, datetime.time(18, 48)) if args.today
+            else datetime.datetime.now(kst).replace(tzinfo=None))
+    closed_dropped = drop_closed(search, base + datetime.timedelta(minutes=C.CLOSE_MARGIN_MIN))
+    if closed_dropped:
+        log(f"마감이 {base + datetime.timedelta(minutes=C.CLOSE_MARGIN_MIN):%m/%d %H:%M} 이전인 물건 {closed_dropped}건 제외")
 
     # 2. 1차 선별
     pool_a, stats_a = A.select_A(search["A"])
@@ -227,7 +253,7 @@ def main():
     except Exception as e:                       # 개발 데이터가 깨져도 나머지 리포트는 낸다
         log(f"개발 사업 연관 집계 오류: {type(e).__name__} {e}")
         devscan = {"total": 0, "hits": 0, "counts": {"1": 0, "2": 0, "3": 0}, "shown": [], "entries": 0, "built": None}
-    data = {"today": today.isoformat(), "bid_window": search["A"].get("bidWindow"), "devscan": devscan,
+    data = {"today": today.isoformat(), "bid_window": search["A"].get("bidWindow"), "devscan": devscan, "closed_dropped": closed_dropped,
             "stats": {"A": stats_a, "B": stats_b, "C": stats_c, "D": stats_d}, "missing_details": missing,
             "tracking": tracking, "A": ta, "D": td, "B": tb, "C": tc}
     with open(os.path.join(out, "candidates.json"), "w") as f:

@@ -41,7 +41,7 @@ python3 -m onbid.run --out out/test --skip-search --no-state   # 시험 실행(�
 시험(네트워크 없이 돈다. Node와 Python만 필요)
 
 ```bash
-python3 -m unittest discover -s onbid/tests -t .          # 코드 시험 (2026-10-18 기준 452개, 30초 안팎)
+python3 -m unittest discover -s onbid/tests -t .          # 코드 시험 (2026-10-18 기준 458개, 30초 안팎)
 ONBID_FIXTURES=<수집본 폴더> python3 -m unittest discover -s onbid/tests -t .   # 실제 수집본(search_*.json, items/, media/)이 있을 때 추가로 도는 시험
 python3 -m onbid.devzone validate                          # 개발 사업 데이터 검사 (오류 0이어야 커밋)
 ```
@@ -74,12 +74,15 @@ python3 -m onbid.track show                              # 추적 현황
 ## 단계
 
 1. `js/search.js` — 조건검색 3종을 100건씩 페이지 넘겨 받는다(입찰기간 오늘~1개월, 사이트 기본값).
+   이어서 `run.drop_closed`가 리포트가 사용자에게 닿기 전(검색 시각 + `CLOSE_MARGIN_MIN` 40분)에 마감하는 물건을 뺀다
+   (평일 18:48 루틴에서 그날 16시·18시 마감 물건이 실리던 문제). 뺀 건수는 초안 머리말에 적는다.
 2. `analyze.select_*` — 1차 선별. A는 지분(`alcYn=='Y'`)·압류재산, D는 비지분 압류재산(같은 건물·가격 호실은 묶음),
    둘 다 산본에서 가까운 순으로 상세를 연다(A·D 각 30건). B는 권리형 제외 → 키워드·가산점·거리, 한 기관이 5건 넘게
    독차지하지 못하게 분산(40건). C는 `carfilter`로 실효 없는 물건을 뺀 뒤 가까운 순(15건).
 3. `js/details.js` — 후보별 상세 화면, 등기·점유·임대차·배분요구 조각, 사진 목록, 공매재산명세서.
 4. `parse.py` → `analyze.build_*` — 리스크 등급, 회차표, 플래그, 지원금 추정, 출구 계산(`exit_numbers`), 개발 연관 매칭(`devzone.match`), 정렬.
 5. `media.py` — 상위 후보(A 8·D 8·B 14·C 5)의 사진과 감정평가서 PDF를 받아 모음 이미지를 만든다. 링크도 이때 확인한다.
+   감정평가서가 24쪽을 넘으면 앞 2/3와 뒤 1/3만 쪽 이미지로 만든다(스캔본은 요항표·도면이 뒤쪽에 오는 일이 있다).
    이어서 `analyze.apply_appraisal`이 A·D의 감정평가서 본문(`appraisal.txt`)에서 맹지·급경사·현황 농지·분묘 신호를 뽑아
    등급을 다시 매기고, 사진 판단 뒤의 순서로 `sort_A`·`sort_D`를 다시 돌린다.
 6. `track.py` + `js/results.js` — 추적 중인 물건 중 개찰이 지난 것의 결과(낙찰가·낙찰가율·응찰자 수·유찰)를 받고,
