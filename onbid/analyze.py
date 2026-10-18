@@ -272,7 +272,10 @@ def select_C(search):
 # ───────────────────────── 상세 분석(상세 화면 파싱 후) ─────────────────────────
 
 CORP = re.compile(r"\(주\)|주식|\(유\)|\(사\)|\(재\)|법인|조합|공사|공단|종중|교회|^국|시청|군청|구청|도청|회사")
-FAVOR = ("아파트 옹벽", "옹벽", "통행로", "경계 확인", "경계확인", "현황도로", "현황 도로", "도로로 이용", "침범", "담장")
+FAVOR = ("아파트 옹벽", "옹벽", "통행로", "경계 확인", "경계확인", "침범", "담장")
+# 현황도로(지자체가 이미 도로로 쓰는 사유지)는 유리한 신호가 아니라 경고다: 원소유자가 사용수익권을 포기한 것으로 보이면 경매·공매로 산 사람도
+# 지자체에 부당이득을 청구할 수 없다(2016다264556 전원합의체, KNOWLEDGE 2-6). 규칙 R1(2026-10-18 사용자 승인).
+CAUTION = ("현황도로", "현황 도로", "도로로 이용")
 
 
 def _share_ratio(note):
@@ -351,6 +354,7 @@ def build_A(items, today):
         out.append({
             **it, "grade": g, "basis": b, "natural_hint": natural,
             "favor_flags": [f for f in FAVOR if f in text],
+            "caution_flags": [f for f in CAUTION if f in text],
             "share_ratio": ratio,
             "current_round": cur, "next_round": nxt,
             "dist": _dist(it["row"]) if it.get("row") else None,

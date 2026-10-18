@@ -355,6 +355,9 @@ def block_A(i, it, today):
     L += [f"  > {n}" for n in notes] or ["  > (없음)"]
     if it.get("favor_flags"):
         L.append(f"  - 플래그: {', '.join(it['favor_flags'])} → 지분 되팔기 전략에 유리한 신호")
+    if it.get("caution_flags"):
+        L.append(f"  - ⚠ 현황도로 표기({', '.join(it['caution_flags'])}): 지자체 부당이득 청구는 어렵다(대법원 2016다264556) — 유리한 신호가 아니다. "
+                 "되팔 민간 매수자(인접 개발 예정지 소유자 등)를 특정할 수 있을 때만 의미가 있다")
     kv = it.get("kv", {})
     L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:120]}」"
              + (" → 자연림 기재(그냥 산일 가능성)" if it.get("natural_hint") else ""))

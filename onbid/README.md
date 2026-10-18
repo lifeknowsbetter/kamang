@@ -40,7 +40,7 @@ python3 -m onbid.run --out out/test --skip-search --no-state   # 시험 실행(�
 시험(네트워크 없이 돈다. Node와 Python만 필요)
 
 ```bash
-python3 -m unittest discover -s onbid/tests -t .          # 코드 시험 (2026-10-18 기준 444개, 30초 안팎)
+python3 -m unittest discover -s onbid/tests -t .          # 코드 시험 (2026-10-18 기준 450개, 30초 안팎)
 ONBID_FIXTURES=<수집본 폴더> python3 -m unittest discover -s onbid/tests -t .   # 실제 수집본(search_*.json, items/, media/)이 있을 때 추가로 도는 시험
 python3 -m onbid.devzone validate                          # 개발 사업 데이터 검사 (오류 0이어야 커밋)
 ```
