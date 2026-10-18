@@ -8,6 +8,7 @@ import re
 
 from . import carfilter
 from . import config as C
+from . import devzone
 from . import geo
 from . import subsidy
 
@@ -141,6 +142,9 @@ def select_B(search):
         top = cat.split(" / ")[0]
         if top in C.MVAST_SKIP_CATS:
             skipped[top] = skipped.get(top, 0) + 1
+            continue
+        if re.search(C.MVAST_RIGHTS, nm):
+            skipped["권리형(이름)"] = skipped.get("권리형(이름)", 0) + 1
             continue
         price, appr = r.get("lowstBidPrc") or 0, r.get("cltrApslEvlAvgAmt") or 0
         cat_hit = any(h in cat for h in C.MVAST_CATEGORY_ONLY)
@@ -316,6 +320,7 @@ def build_A(items, today):
             "share_ratio": ratio,
             "current_round": cur, "next_round": nxt,
             "dist": _dist(it["row"]) if it.get("row") else None,
+            "dev": devzone.match((it.get("row") or {}).get("sidoSgkEmd")),
         })
         out[-1]["exit"] = exit_numbers(out[-1])
     # 위험 높음은 뒤로 → 산본에서 가까운 구간 → 리스크 → 실제 이용 중인 땅 먼저 → 지목 → 가격
@@ -397,10 +402,8 @@ def build_D(items, today):
                     "next_round": next_round(sched, it.get("round")),
                     "ratio": round(price / appr * 100) if appr and price else None,
                     "fails_n": int(row.get("uscbdCnt") or 0), "deposit_sum": sum(dep) if dep else 0,
-                    "dup": it.get("dup", 0)})
-    order = {"낮음": 0, "중간": 1, "높음": 2}
-    out.sort(key=lambda x: (x["grade"] == "높음", geo.band_idx(x["dist"]), order[x["grade"]], x.get("price") or 0))
-    return out
+                    "dup": it.get("dup", 0), "dev": devzone.match(row.get("sidoSgkEmd"))})
+    return sort_D(out)
 
 
 GRAVE_REAL = r"분묘(?![^.\n]{0,14}가능성)(?![^.\n]{0,6}없)"
@@ -497,13 +500,14 @@ def apply_appraisal(it, kind):
 def sort_A(items):
     order = {"낮음": 0, "중간": 1, "높음": 2}
     cls = {"우선": 0, "기타토지": 1, "농지": 2, "건물": 3}
-    return sorted(items, key=lambda x: (x["grade"] == "높음", geo.band_idx(x.get("dist")), order[x["grade"]], x.get("natural_hint", False),
-                                        cls.get(x.get("land_class"), 9), x.get("price") or 0))
+    return sorted(items, key=lambda x: (x["grade"] == "높음", geo.band_idx(x.get("dist")), order[x["grade"]], devzone.best_tier(x.get("dev")),
+                                        x.get("natural_hint", False), cls.get(x.get("land_class"), 9), x.get("price") or 0))
 
 
 def sort_D(items):
     order = {"낮음": 0, "중간": 1, "높음": 2}
-    return sorted(items, key=lambda x: (x["grade"] == "높음", geo.band_idx(x.get("dist")), order[x["grade"]], x.get("price") or 0))
+    return sorted(items, key=lambda x: (x["grade"] == "높음", geo.band_idx(x.get("dist")), order[x["grade"]], devzone.best_tier(x.get("dev")),
+                                        x.get("price") or 0))
 
 
 def display_name_B(it):

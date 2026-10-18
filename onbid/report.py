@@ -4,6 +4,7 @@ import os
 import re
 
 from . import config as C
+from . import devzone
 from . import geo
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯"
@@ -192,6 +193,56 @@ def exit_lines(it):
     return L
 
 
+def dev_lines(it):
+    """물건 소재지와 가까운 개발 사업(onbid/data/devzones.json). 위치가 가깝다는 사실만 적고 수익으로 읽지 않게 주의 문구를 붙인다."""
+    dev = it.get("dev") or []
+    if not dev:
+        return []
+    live = [d for d in dev if d["stage"] != "보류·취소"]
+    pool = live or dev
+    strong = [d for d in pool if d["tier"] <= 2]
+    show = strong[:2] or pool[:1]          # 시군구만 맞는 약한 연관은 한 줄로만 보여 준다
+    L = []
+    for d in show:
+        src = f" · [출처]({d['sources'][0]})" if d.get("sources") else ""
+        head = f"- 🏗 개발 연관[{d['why']}]: {d['name']} — {d['stage']}(기준 {d['asof']}, 신뢰 {d['confidence']}) · {d.get('place') or ''}"
+        if d["tier"] > 2:
+            L.append(head + src)
+            continue
+        L.append(head + (f" · {d['summary']}" if d.get("summary") else "") + src)
+        if d.get("schedule"):
+            L.append(f"  - 일정: {d['schedule']}")
+        if d.get("land_rules"):
+            L.append(f"  - 토지 규제: {d['land_rules']}")
+    if any(d["tier"] <= 2 and d["stage"] != "보류·취소" for d in show):
+        L.append("  - ⚠ 위치가 가깝다는 사실일 뿐 수익 근거가 아니다. 구역 경계는 지번으로 토지이음·고시 도면에서 확인할 것(읍면동 일치도 구역 밖일 수 있다). "
+                 "구역 안이면 지구지정 뒤 취득분은 개발이익이 배제된 보상가가 기준일 수 있고, 토지거래허가구역이면 압류재산 공매 낙찰은 허가 면제로 읽히나(시행령 제11조제3항제12호) 되팔 때 매수인에게 허가가 필요할 수 있다.")
+    return L
+
+
+def devscan_section(ds):
+    """전체 압류 부동산 목록(상세 열기 전)에서 개발 사업과 연관된 물건. 상위 목록에 못 든 물건도 한눈에 보여 준다."""
+    if not ds:
+        return []
+    if not ds.get("entries"):
+        return ["## 🏗 개발 사업 연관 물건", "개발 사업 데이터(onbid/data/devzones.json)를 읽지 못해 이번에는 연관 표시를 생략한다.", ""]
+    c = ds["counts"]
+    L = ["## 🏗 개발 사업 연관 물건 — 전국 압류 부동산 전체 목록 기준",
+         f"압류재산 {ds['total']}건 중 개발 사업과 위치가 맞는 물건 {ds['hits']}건(읍면동 일치 {c['1']}건, 같은 시·구·읍면동 미특정 {c['2']}건, 그 밖에 시군구만 맞는 약한 연관 {c['3']}건). "
+         f"데이터 {ds['entries']}개 사업, 기준 {ds.get('built') or '-'}. "
+         "상세(권리·점유·사진)를 열기 전의 1차 목록이라 위험은 따로 확인해야 하고, 위치가 가깝다는 사실일 뿐 수익을 뜻하지 않는다.",
+         "",
+         "| 물건 | 최저가(감정가 대비) | 산본 | 연관 사업 | 단계 | 연관 |", "|---|---|---|---|---|---|"]
+    for h in ds["shown"]:
+        appr, pr = h.get("appraisal"), h.get("price")
+        d = h["dev"]
+        nm = (h.get("name") or "")[:34]
+        L.append(f"| [{nm}]({h['link']}) {'(지분)' if h.get('share') else ''} {h.get('cat') or ''} | {won(pr)}" + (f" ({pct(pr, appr)})" if appr and pr else "")
+                 + f" | {h['dist']}km | {d['name'][:30]} | {d['stage']} | {d['why']} |")
+    L.append("")
+    return L
+
+
 def block_A(i, it, today):
     b = it["basis"]
     area = it.get("area") or {}
@@ -202,6 +253,7 @@ def block_A(i, it, today):
          f"- 물건관리번호 {it['mng']} / 지목 {area.get('use', '-')} / 지분 {area.get('area', '-')} — {area.get('share_note', '')}"
          + (f" (**{ratio * 100:.1f}%**)" if ratio else ""),
          place_line(it),
+         *dev_lines(it),
          f"- 공고 {it.get('org')} {it.get('branch') or ''} / 의뢰 {it.get('client') or '-'}",
          f"- 감정가 {won(it.get('appraisal'))} → 현재({it.get('round')}회) **{won(it.get('price'))}** "
          f"(감정가의 {pct(it.get('price'), it.get('appraisal'))}, {it.get('fails')} 유찰), 입찰 {dday(it, today)}",
@@ -312,6 +364,7 @@ def block_D(i, it, today):
          f"- 물건관리번호 {it['mng']} / {(it.get('row') or {}).get('ctgrFullNm', '-')} / 면적 {area.get('area', '-')} {area.get('share_note', '') or ''}"
          + (f" / 같은 건물·가격 호실 {it['dup']}개 더 있음" if it.get("dup") else ""),
          place_line(it),
+         *dev_lines(it),
          f"- 공고 {it.get('org')} {it.get('branch') or ''}",
          f"- 감정가 {won(it.get('appraisal'))} → 현재({it.get('round')}회) **{won(it.get('price'))}** "
          f"(감정가의 {pct(it.get('price'), it.get('appraisal'))}, {it.get('fails')} 유찰), 입찰 {dday(it, today)}",
@@ -373,6 +426,7 @@ def write_draft(out, data):
     L.append("")
     for i, it in enumerate(data["D"][:C.MEDIA_D]):
         L += [block_D(i, it, today), ""]
+    L += devscan_section(data.get("devscan"))
     L += [f"## Track B: 동산 재판매 (동산 {sb['동산물건']}건 중 후보 {sb['후보']}건(산본 {C.NEAR_KM}km 이내 {sb['산본_50km_이내']}건), 상세 {sb['상세분석']}건)",
           f"제외한 권리형·폐기물 등 {sb['권리형·폐기물 등 제외']}", f"공고기관별 {sb['공고기관별']}", "",
           "| 물건명 | 물건관리번호 | 최저입찰가 | 마감일(D-n) | 📷 상태판단 | 주의사항 |", "|---|---|---|---|---|---|"]

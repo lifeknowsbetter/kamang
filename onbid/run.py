@@ -20,7 +20,7 @@ import urllib.request
 
 from . import analyze as A
 from . import config as C
-from . import media, parse, report, track
+from . import devzone, media, parse, report, track
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 JS = os.path.join(HERE, "js")
@@ -176,7 +176,14 @@ def main():
     if not args.no_state:
         track.save(st)
 
-    data = {"today": today.isoformat(), "bid_window": search["A"].get("bidWindow"),
+    # 개발 사업 연관: 상세를 열지 않은 전체 압류 부동산 목록을 개발 사업 데이터와 맞춘다
+    dz = devzone.load()
+    devscan = devzone.scan(search["A"]["rows"], dz)
+    for h in devscan["shown"]:
+        h["link"] = A.link(h.pop("row"))
+    devscan.update(entries=len(dz.get("entries") or []), built=dz.get("built"),
+                   counts={str(k): v for k, v in devscan["counts"].items()})
+    data = {"today": today.isoformat(), "bid_window": search["A"].get("bidWindow"), "devscan": devscan,
             "stats": {"A": stats_a, "B": stats_b, "C": stats_c, "D": stats_d}, "missing_details": missing,
             "tracking": tracking, "A": ta, "D": td, "B": tb, "C": tc}
     with open(os.path.join(out, "candidates.json"), "w") as f:
