@@ -78,10 +78,4 @@ onbid/
   knowledge/    지식 노트와 journal/
   state/        추적 상태(tracked.json)
   ROUTINE_PROMPT.md  LEARN_PROMPT.md  README.md
-run.py, screener/, .screener_state.json    레거시(아래 참고, 온비드와 무관)
 ```
-
-## 참고: 현대 하이브리드 스크리너(레거시)
-
-루트의 `run.py`, `screener/`, `.screener_state.json`은 삭제된 "현대 하이브리드 중고 매물 주간 스크리닝" 루틴의 잔재이며
-온비드와 무관하다. 원본은 브랜치 `claude/hyundai-hybrid-screening-bot-r0bn1c`에 있고, 필요 없으면 지워도 된다.
