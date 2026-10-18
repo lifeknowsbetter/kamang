@@ -175,8 +175,8 @@ def appraisal(item, d):
             rendered.append(prefix + ".png")
     sheets = []
     for i in range(0, len(rendered), 8):
-        s = contact_sheet(rendered[i:i + 8], os.path.join(d, f"appraisal_sheet{i // 8 + 1}.jpg"), cols=4, width=420,
-                          labels=[f"p{int(re.search(r'p(\d+)', os.path.basename(x)).group(1))}" for x in rendered[i:i + 8]])
+        labels = ["p" + str(int(re.search(r"p(\d+)", os.path.basename(x)).group(1))) for x in rendered[i:i + 8]]     # f-string 안 역슬래시는 3.12부터라 쓰지 않는다
+        s = contact_sheet(rendered[i:i + 8], os.path.join(d, f"appraisal_sheet{i // 8 + 1}.jpg"), cols=4, width=420, labels=labels)
         if s:
             sheets.append(s)
     # 한국감정평가사협회 '전자서명 증명서' 1쪽만 글자 층이 있고 본문은 스캔인 PDF가 있다 — 증명서 쪽은 글자 쪽으로 세지 않는다.

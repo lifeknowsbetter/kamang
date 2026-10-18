@@ -18,6 +18,12 @@ import sys
 import time
 import urllib.request
 
+try:
+    import PIL  # noqa: F401  (media.py가 쓴다)
+except ImportError:
+    sys.exit("이 파이썬에는 Pillow(PIL)가 없습니다. 루틴 컨테이너는 기본 python3(3.11)에 Pillow가 없을 수 있으니 "
+             "Pillow가 든 /usr/bin/python3 로 다시 실행하세요: /usr/bin/python3 -m onbid.run --out out/onbid  (pip 설치는 막혀 있습니다)")
+
 from . import analyze as A
 from . import config as C
 from . import devzone, media, parse, report, track

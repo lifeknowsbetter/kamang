@@ -21,7 +21,8 @@
 ## 실행
 
 Node(Playwright + Chromium)와 Python 3(Pillow), poppler-utils(pdftotext·pdfimages·pdftoppm)가 필요하다.
-클라우드 세션 이미지에는 모두 들어 있다.
+클라우드 세션 이미지에는 들어 있으나, 기본 `python3`가 3.11이고 Pillow가 없는 컨테이너가 있다(2026-10-18 루틴 시험에서 확인).
+그때는 Pillow가 든 `/usr/bin/python3`로 같은 명령을 실행한다. 코드는 Python 3.11에서도 돌아가야 하므로 f-string 표현식 안에 역슬래시나 같은 종류 따옴표를 쓰지 않는다(`tests/test_compat.py`가 확인).
 
 ```bash
 python3 -m onbid.run --out out/onbid              # 검색→상세→사진·감정평가서→초안 (20~30분)
@@ -40,7 +41,7 @@ python3 -m onbid.run --out out/test --skip-search --no-state   # 시험 실행(�
 시험(네트워크 없이 돈다. Node와 Python만 필요)
 
 ```bash
-python3 -m unittest discover -s onbid/tests -t .          # 코드 시험 (2026-10-18 기준 450개, 30초 안팎)
+python3 -m unittest discover -s onbid/tests -t .          # 코드 시험 (2026-10-18 기준 452개, 30초 안팎)
 ONBID_FIXTURES=<수집본 폴더> python3 -m unittest discover -s onbid/tests -t .   # 실제 수집본(search_*.json, items/, media/)이 있을 때 추가로 도는 시험
 python3 -m onbid.devzone validate                          # 개발 사업 데이터 검사 (오류 0이어야 커밋)
 ```

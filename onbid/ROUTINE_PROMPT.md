@@ -34,6 +34,8 @@ push는 이 루틴 설정(claude.ai 루틴 편집 화면)에 저장소 lifeknows
 
     cd ~/kamang && python3 -m onbid.run --out out/onbid
 
+Pillow가 없다는 오류(`ModuleNotFoundError: PIL` 또는 이 파이썬에는 Pillow가 없다는 안내)가 나오면 컨테이너 기본 python3(3.11)에 Pillow가 없는 것입니다. pip 설치는 막혀 있으니 하지 말고 같은 명령을 `/usr/bin/python3 -m onbid.run --out out/onbid`로 실행합니다. 코드는 고치지 않습니다.
+
 20~30분 걸립니다. 끝나면 out/onbid/report_draft.md(초안), candidates.json(전체 데이터), media/(사진·감정평가서 모음)가 생깁니다.
 이 실행은 onbid/state/tracked.json(지난 후보 추적 목록)을 읽어 개찰이 지난 물건의 낙찰 결과를 조회하고, 동산·자동차 후보와 같은 종류의 최근 90일 낙찰 사례를 붙입니다.
 실패하면 로그로 원인을 한 번 진단하고 `--skip-search`로 이어서 재실행합니다(끝난 상세는 건너뜀). 그래도 실패하면 수집 실패로 보고합니다.

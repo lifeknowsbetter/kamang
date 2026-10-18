@@ -320,7 +320,8 @@ def block_A(i, it, today):
          f"- 농지여부: " + ("⚠농지취득자격증명 필요" if it["land_class"] == "농지" else f"해당 없음({area.get('use', '')})"),
          ]
     if b["공유자수"]:
-        L.append(f"- ⚠공유자 현황: {b['공유자수']}명(법인 {b['공유자_법인']}), 등록일 {', '.join(d for d in b['공유자_등록일'] if re.match(r'\d{4}-', d)) or '미상'}"
+        reg_days = ", ".join(d for d in b["공유자_등록일"] if re.match(r"\d{4}-", d)) or "미상"          # f-string 안 역슬래시는 3.12부터라 밖에서 만든다
+        L.append(f"- ⚠공유자 현황: {b['공유자수']}명(법인 {b['공유자_법인']}), 등록일 {reg_days}"
                  + (f"(등록일 미상 {b['공유자_등록일미상']}명)" if b.get("공유자_등록일미상") and b["공유자_등록일미상"] < b["공유자수"] else "")
                  + " → ⚠공유자 우선매수신청 리스크" + (" / 장기 방치 지분 가능성(10년↑)" if b["공유자_장기"] else ""))
     elif b.get("정보부족"):
