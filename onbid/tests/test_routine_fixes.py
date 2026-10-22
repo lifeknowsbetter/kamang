@@ -70,5 +70,15 @@ class TestPickPages(unittest.TestCase):
         self.assertTrue(set(range(23, 31)) <= set(got), got)       # 28쪽 스캔본의 요항표(22~28쪽)가 빠지던 문제
 
 
+class TestPushStepInPrompt(unittest.TestCase):
+    def test_routine_prompt_requires_push_summary(self):
+        s = open(os.path.join(REPO_ROOT, "onbid", "ROUTINE_PROMPT.md"), encoding="utf-8").read()
+        i = s.index("## 6. 푸시 알림")
+        sec = s[i:]
+        for must in ("PushNotification", "반드시", "select:PushNotification", "<routine_summary>", "proactive", "푸시 요약 전송 실패"):
+            self.assertIn(must, sec)
+        self.assertGreater(i, s.index("## 5. 추적 표시와 저장"))          # 저장 뒤, 최종 응답 직전
+
+
 if __name__ == "__main__":
     unittest.main()
