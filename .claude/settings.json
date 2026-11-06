@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m onbid.run:*)",
+      "Bash(/usr/bin/python3 -m onbid.run:*)",
+      "Bash(python3 -m onbid.track:*)",
+      "Bash(/usr/bin/python3 -m onbid.track:*)",
+      "Bash(git add onbid/state/tracked.json)",
+      "Bash(git pull --rebase origin claude/onbid-weekly-scouting-b8yrsl)",
+      "Bash(git push origin claude/onbid-weekly-scouting-b8yrsl)"
+    ]
+  }
+}
