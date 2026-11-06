@@ -26,7 +26,7 @@ except ImportError:
 
 from . import analyze as A
 from . import config as C
-from . import devzone, media, parse, report, track
+from . import devzone, insight, media, parse, report, track
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 JS = os.path.join(HERE, "js")
@@ -218,6 +218,13 @@ def main():
                 it["comp_key"] = f"{t}:{kw}"
                 keywords[it["comp_key"]] = {"key": it["comp_key"], "kw": kw, "type": track.TYPE[t],
                                             "from": (today - datetime.timedelta(days=90)).isoformat()}
+    # 부동산(A·D): 같은 시·군의 최근 90일 토지/건물 결과(예상 낙찰가·경쟁 정도의 근거)
+    for it in ta[:C.MEDIA_A] + td[:C.MEDIA_D]:
+        rk = insight.region_key(it)
+        if rk:
+            it["comp_key"] = f"R:{rk}"
+            keywords[it["comp_key"]] = {"key": it["comp_key"], "kw": rk, "type": "0001",
+                                        "from": (today - datetime.timedelta(days=90)).isoformat()}
     res, changed = None, []
     if not args.no_results and (due_items or keywords):
         log(f"입찰결과 조회: 지난 후보 {len(due_items)}건, 동종 키워드 {len(keywords)}개")
@@ -234,6 +241,18 @@ def main():
         for it in tb[:C.MEDIA_B] + tc[:C.MEDIA_C]:
             if it.get("comp_key"):
                 it["comps"] = track.comps_summary(None)
+    # 예상 낙찰가·판정 근거(A·D·C). 추적 이력 기준선은 오늘 후보를 넣기 전 상태로 잰다
+    hist = {t: insight.hist_stats(st, t) for t in "ADC"}
+    kwres = (res or {}).get("keywords") or {}
+    for t, items in (("A", ta[:C.MEDIA_A]), ("D", td[:C.MEDIA_D]), ("C", tc[:C.MEDIA_C])):
+        for it in items:
+            try:
+                local = None
+                if t != "C" and it.get("comp_key"):
+                    local = insight.rlst_comps(kwres.get(it["comp_key"]) if res else None, it) if not args.no_results else None
+                it["insight"] = insight.build(t, it, local, hist[t])
+            except Exception as e:           # 판정 근거 계산 실패가 리포트 전체를 막지 않게
+                log(f"  판정 근거 계산 오류 {it['mng']}: {type(e).__name__} {e}")
     tracking = report.tracking_data(st, changed, due_items, res is not None)
     for it in ta + td + tb + tc:
         e = st["items"].get(it["mng"])
