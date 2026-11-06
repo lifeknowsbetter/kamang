@@ -224,12 +224,18 @@ def verdict_land(it, track, ex, local=None, hist=None):
         stop.append(f"감정가 {won(appr)}의 70%에서 실비·목표이익 38만원을 빼면 남는 돈이 없다 — 어떤 값에 사도 이익 구조가 아니다")
 
     fails = fails_of(it)
+    building = track == "D" and it.get("land_class") == "건물"
     if appr and price:
-        R.append(("ℹ", f"유찰 {fails}회로 감정가의 {price / appr * 100:.0f}%까지 내려왔다"
-                       + (" — 이만큼 안 팔린 데는 이유(진입로·경사·분묘·쓸모)가 있다" if fails >= 5 else "")))
+        if fails:
+            why = "인수금·점유·관리비·쓸모" if building else "진입로·경사·분묘·쓸모"
+            R.append(("ℹ", f"유찰 {fails}회로 감정가의 {price / appr * 100:.0f}%까지 내려왔다"
+                           + (f" — 이만큼 안 팔린 데는 이유({why})가 있다" if fails >= 5 else "")))
+        else:
+            R.append(("ℹ", f"첫 회차(감정가의 {price / appr * 100:.0f}%) — 첫 회차 지분은 대개 유찰된다(추적 이력의 지분 낙찰은 감정가 20~80% 회차)" if track == "A"
+                           else f"첫 회차(감정가의 {price / appr * 100:.0f}%)"))
     if ex:
         src = "같은 시·군 최근 90일" if ex["src"] == "local" else "우리 추적 이력"
-        R.append(("ℹ", f"예상 낙찰가 {won(ex['mid'])}(범위 {won(ex['lo'])}~{won(ex['hi'])}) — {src} 낙찰 {ex['n']}건의 최저가 대비 {ex['rate']}%"
+        R.append(("ℹ", f"팔린다면 예상 낙찰가 {won(ex['mid'])}(범위 {won(ex['lo'])}~{won(ex['hi'])}) — {src} 낙찰 {ex['n']}건의 최저가 대비 {ex['rate']}%"
                        f"(사분위 {ex['rate_lo']}~{ex['rate_hi']}%)"))
     s = local if local and local.get("n_sold") else hist
     if s and s.get("n_bidders"):
@@ -237,7 +243,10 @@ def verdict_land(it, track, ex, local=None, hist=None):
                        + (" — 경쟁은 약하지만 그만큼 사려는 사람도 적다는 뜻(되팔 상대가 얕다)" if s["solo"] * 2 >= s["n_bidders"] else " — 경쟁이 붙는 지역")))
     if local and not local.get("failed") and local.get("n_sold", 0) + local.get("n_unsold", 0) >= 5:
         tot = local["n_sold"] + local["n_unsold"]
-        R.append(("ℹ", f"같은 시·군 비슷한 가격대 {local['kind']} 개찰 {tot}회 중 낙찰 {local['n_sold']}회({local['n_sold'] / tot * 100:.0f}%)"))
+        pct_sold = local["n_sold"] / tot * 100
+        R.append(("ℹ", f"같은 시·군 비슷한 가격대 {local['kind']} 개찰 {tot}회 중 낙찰 {local['n_sold']}회({pct_sold:.0f}%)"
+                       + (" — 이 지역은 대부분 유찰된다. 이번 회차에 안 팔리고 다음 회차로 내려갈 가능성이 크다" if pct_sold < 30
+                          else " — 개찰하면 대부분 팔리는 지역이라 경쟁을 전제로 봐야 한다" if pct_sold >= 70 else "")))
 
     mid = ex["mid"] if ex else price
     sell = need_sell(mid)
@@ -245,12 +254,14 @@ def verdict_land(it, track, ex, local=None, hist=None):
         R.append(("ℹ", f"{'예상 낙찰가' if ex else '최저가'} {won(mid)}에 사면 본전+목표이익 30만에 필요한 매도가 {won(sell)}(감정가의 {sell / appr * 100:.0f}%)"))
     if cap and cap > 0 and ex:
         lim = min(cap, bcap or cap)
+        lname = "예산 상한" if bcap and bcap < cap else "출구 상한"
         if ex["mid"] > lim:
-            R.append(("⛔", f"예상 낙찰가 {won(ex['mid'])} > 출구 상한 {won(lim)} — 이기려면 상한보다 {won(ex['mid'] - lim)} 더 써야 한다"))
-            stop.append("경쟁선이 출구 상한 위")
+            R.append(("⛔", f"예상 낙찰가 {won(ex['mid'])} > {lname} {won(lim)} — 이기려면 상한보다 {won(ex['mid'] - lim)} 더 써야 한다"))
+            stop.append(f"경쟁선(예상 낙찰가)이 {lname} 위")
         else:
-            R.append(("✅", f"예상 낙찰가가 출구 상한 {won(lim)} 이하(여유 {won(lim - ex['mid'])}, 상한은 감정가로 잡은 위쪽 한계)"))
-    if loss is not None:
+            R.append(("✅", f"예상 낙찰가가 {lname} {won(lim)} 이하(여유 {won(lim - ex['mid'])}"
+                            + (", 출구 상한은 감정가로 잡은 위쪽 한계)" if lname == "출구 상한" else ")")))
+    if loss is not None and not building:
         R.append(("⚠" if loss > 0 else "ℹ", f"못 팔고 감정가의 20%(미확인 가정)로 넘기면 손실 약 {won(max(loss, 0))}"
                                             + (f" — 최저가의 {loss / price * 100:.0f}%" if loss > 0 and price else "")))
 
@@ -320,9 +331,10 @@ def car_expect(it):
         # comps_summary 는 중앙값만 남기므로 사례 낙찰가율로 범위를 만든다(사례 3~5건)
         rates = [x["rate"] for x in c.get("examples") or [] if x.get("rate")]
         q = _q(rates) or (c["median_rate"], c["median_rate"], c["median_rate"])
+        lo, hi = min(q[0], c["median_rate"]), max(q[2], c["median_rate"])      # 최근 사례 3~5건의 범위가 전체 중앙값을 못 감쌀 수 있다
         return {"src": "comps", "n": c.get("n_rates") or c.get("n_sold"), "mid": int(price * c["median_rate"] / 100),
-                "lo": int(price * q[0] / 100), "hi": int(price * q[2] / 100), "rate": c["median_rate"],
-                "rate_lo": round(q[0], 1), "rate_hi": round(q[2], 1)}
+                "lo": int(price * lo / 100), "hi": int(price * hi / 100), "rate": c["median_rate"],
+                "rate_lo": round(lo, 1), "rate_hi": round(hi, 1)}
     return None
 
 
@@ -399,7 +411,8 @@ def explain(r, feat=None):
     out = []
     if st == "유찰":
         out.append(f"응찰 {n}명 — 최저가 {won(low)}" + (f"(감정가의 {low / appr * 100:.0f}%)" if low and appr else "")
-                   + "에도 사려는 사람이 없었다. 이 값도 비싸다고 본 것이고 다음 회차에서 10%p씩 더 내려간다")
+                   + "에도 사려는 사람이 없었다. 시장이 이 값도 비싸다고 본 것"
+                   + (" — 압류재산은 다음 회차에서 최초 예정가의 10%씩 더 내려간다" if tr in ("A", "D") else " — 다음 회차 가격은 공고 회차표 확인"))
         if feat.get("bad_exit") or feat.get("natural"):
             out.append("당시 맹지·분묘 또는 자연림 신호가 있었다 — 쓸 사람이 없는 땅은 유찰이 길어진다")
         return out

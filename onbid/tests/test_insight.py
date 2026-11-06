@@ -64,7 +64,7 @@ class VerdictLand(unittest.TestCase):
         v = insight.build("A", it, None, {"n": 9, "rate_q": (100.0, 101.0, 108.0), "n_bidders": 9, "solo": 8})
         self.assertTrue(v["call"].startswith("⛔"))
         txt = " ".join(t for _, t in v["reasons"])
-        self.assertIn("예상 낙찰가 4,040,000원", txt)        # 비권고여도 예상 낙찰가와 근거는 낸다
+        self.assertIn("팔린다면 예상 낙찰가 4,040,000원", txt)        # 비권고여도 예상 낙찰가와 근거는 낸다
         self.assertIn("필요한 매도가", txt)
         self.assertIn("응찰 1명", txt)
 
@@ -73,6 +73,14 @@ class VerdictLand(unittest.TestCase):
         v = insight.build("A", it, None, {"n": 9, "rate_q": (100.0, 101.0, 108.0)})
         self.assertTrue(v["call"].startswith("⛔"))
         self.assertTrue(any("출구 상한" in t for s, t in v["reasons"] if s == "⛔"))
+
+    def test_budget_label_and_building_no_loss(self):
+        it = land_item(appraisal=200_000_000, price=9_000_000, land_class="건물", risk_flags=[])
+        v = insight.build("D", it, None, {"n": 5, "rate_q": (105.0, 120.0, 130.0)})
+        txt = " ".join(t for _, t in v["reasons"])
+        self.assertIn("예산 상한", txt)
+        self.assertNotIn("감정가의 20%", txt)            # 건물 호실에 지분 매입업체 손절선은 맞지 않는다
+        self.assertIn("인수금", txt)
 
     def test_wait_for_round(self):
         it = land_item(appraisal=5_500_000)                   # 상한 ≈ 331만 → 041회 300만부터
@@ -109,6 +117,8 @@ class VerdictCar(unittest.TestCase):
               "flags": [], "notes": []}
         v = insight.build("C", it)
         self.assertEqual(v["exp"]["mid"], 3_200_000)
+        self.assertLessEqual(v["exp"]["lo"], v["exp"]["mid"])
+        self.assertGreaterEqual(v["exp"]["hi"], v["exp"]["mid"])
         self.assertTrue(v["call"].startswith("🔍"))
         self.assertTrue(any("경쟁" in t or "업자" in t for _, t in v["reasons"]))
 
