@@ -15,6 +15,8 @@ import statistics
 import subprocess
 import sys
 
+from . import insight
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = os.environ.get("ONBID_STATE") or os.path.join(HERE, "state", "tracked.json")
 TYPE = {"A": "0001", "B": "0003", "C": "0002", "D": "0001"}
@@ -75,6 +77,8 @@ def add_candidates(st, today, tracks):
             e.update(track=track, name=(it.get("display") or it.get("name") or "")[:60], link=it.get("link"),
                      last_seen=today, price=it.get("price"), appraisal=it.get("appraisal"),
                      deadline=_deadline(it), open_dt=(it.get("row") or {}).get("pbctExctDt"), type=TYPE[track])
+            if track != "B":                     # 낙찰 뒤 '왜 팔렸나'를 근거로 설명하려고 당시 특징을 남긴다(동산 제외)
+                e["feat"] = insight.snapshot(track, it)
 
 
 def mark_reported(st, today, mngs):
@@ -126,7 +130,7 @@ def apply_results(st, results, today):
         if res["status"] in FINAL:
             e["final"] = True
             st["history"].append({"mng": m, "track": e["track"], "name": e.get("name"), "reported": bool(e.get("reported")),
-                                  "appraisal": e.get("appraisal"), **res})
+                                  "appraisal": e.get("appraisal"), **({"feat": e["feat"]} if e.get("feat") else {}), **res})
     return changed
 
 

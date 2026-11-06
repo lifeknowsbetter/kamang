@@ -7,6 +7,7 @@ from . import analyze
 from . import config as C
 from . import devzone
 from . import geo
+from . import insight
 from . import landuse
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯"
@@ -97,10 +98,11 @@ def tracking_data(st, changed, due_items, queried):
     rows = []
     for m in changed:
         e = items.get(m, {})
-        rows.append({"mng": m, **{k: e.get(k) for k in ("track", "name", "link", "price", "appraisal", "reported")},
+        rows.append({"mng": m, **{k: e.get(k) for k in ("track", "name", "link", "price", "appraisal", "reported", "feat")},
                      **(e.get("result") or {})})
     pending = [m for m, e in items.items() if e.get("reported") and not e.get("final")]
-    return {"queried": queried, "due": len(due_items), "changed": rows, "pending_reported": len(pending)}
+    return {"queried": queried, "due": len(due_items), "changed": rows, "pending_reported": len(pending),
+            "lessons": insight.lessons(st)}
 
 
 def tracking_section(tr):
@@ -129,6 +131,12 @@ def tracking_section(tr):
             else:
                 body = st or "-"
             L.append(f"- [{r.get('name')}]({r.get('link')}) {r['mng']} [{r.get('track')}] — {body}, 개찰 {str(r.get('opened'))[:16]}")
+            why = insight.explain(r, r.get("feat"))
+            if why:
+                L.append(f"  - 🔎 {'왜 안 팔렸나' if st == '유찰' else '왜 이 값에 팔렸나'}(코드 추정 — 낙찰자는 공개되지 않음): " + " / ".join(why))
+    if tr.get("lessons"):
+        L.append("**📊 누적 낙찰 기준선(동산 제외, tracked.json history)**")
+        L += [f"- {x}" for x in tr["lessons"]]
     return L + [""]
 
 
@@ -377,6 +385,7 @@ def block_A(i, it, today):
     if it.get("bad_exit"):
         L.append("- ⛔ 맹지·분묘가 감정평가서나 유의사항에 나온다. 위 원문 줄로 실제 맹지·분묘 딸린 지분인지 확인하고, 맞으면 되팔 상대가 거의 없으니 **입찰을 권하지 않는다**(KNOWLEDGE 6-A 6항: 맹지 단독 소유도 감정가 30%가 한도)")
     L += exit_lines(it)
+    L += insight.lines(it)
     L.append("- 📷 사진·도면 판단: ⟪감정평가서 현장사진·지적도·위성사진을 보고: 그냥 산(자연림)인지 / 관리된 땅(정리·경작·포장·건물·도로 이용)인지, 진입로·경사·분묘·경계 표식 등⟫")
     L += _media_lines(it)
     L.append(f"- 종합 리스크: **{it['grade']}**")
@@ -437,6 +446,7 @@ def block_C(i, it, today):
     cl = comps_line(it)
     if cl:
         L.append(f"- 📈 동종 낙찰: {cl}")
+    L += insight.lines(it)
     L.append("- 📷 사진·감정평가표 판단: ⟪외관·실내·계기판(경고등/주행거리)·엔진룸·하부 부식, 감정평가표 체크(시동/작동), 사고이력 → 작동 가능성⟫")
     L += _media_lines(it)
     L.append("- 한줄평: ⟪…⟫")
@@ -474,6 +484,7 @@ def block_D(i, it, today):
     L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')[:80]}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:100]}」")
     L += appr_lines(it)
     L += landuse_block(it)
+    L += insight.lines(it)
     L.append("- 📷 사진·도면 판단: ⟪감정평가서·온비드 사진을 보고: 실제 쓰이는 땅/건물인지, 출입·경계·점유 흔적, 공실 여부⟫")
     L += _media_lines(it)
     L.append("- 💰 출구: ⟪되팔 상대(이웃 땅 주인·공유자·세입자 등)와 근거 시세, 건물이면 같은 동네 월세 1~2건(WebSearch) 확인 결과. 근거가 없으면 '시세 확인 필요'⟫")
