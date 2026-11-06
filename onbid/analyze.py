@@ -10,6 +10,7 @@ from . import carfilter
 from . import config as C
 from . import devzone
 from . import geo
+from . import landuse
 from . import subsidy
 
 LINK_KEYS = ("cltrScrnGrpCd", "cltrPrptDivCd", "onbidCltrno", "onbidPbancNo", "pbctNo", "pbctCdtnNo")
@@ -555,6 +556,7 @@ def apply_appraisal(it, kind):
     path = ((it.get("media") or {}).get("appraisal") or {}).get("text")
     flags, lines = appraisal_signals(path) if path else ([], [])
     it["appr_excerpt"] = lines
+    it["landuse"] = landuse.parse_landuse(path) if path else None      # 토지이음 대신 감정서의 토지이용계획 항목(토지이음은 환경 정책으로 접속 불가)
     if kind == "A":
         fl = [("R" if sv == "F" else sv, m) for sv, m in flags]
         it["appr_flags"] = fl

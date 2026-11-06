@@ -7,6 +7,7 @@ from . import analyze
 from . import config as C
 from . import devzone
 from . import geo
+from . import landuse
 
 CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯"
 
@@ -212,6 +213,13 @@ def appr_lines(it):
     return []
 
 
+def landuse_block(it):
+    """감정평가서의 토지이용계획 항목(토지이음 대용). 감정서가 없는 물건은 줄을 내지 않는다."""
+    if not ((it.get("media") or {}).get("appraisal") or {}).get("text"):
+        return []
+    return landuse.landuse_lines(it.get("landuse"))
+
+
 def exit_lines(it):
     """KNOWLEDGE 6-A의 예산 상한·출구 상한·손절을 코드가 계산한 값. 리포트에는 이 숫자를 그대로 옮긴다."""
     e = it.get("exit") or {}
@@ -267,7 +275,7 @@ def dev_lines(it):
         L.append("- ⛔ 개발 사업 보류·취소(호재로 읽지 말 것): "
                  + "; ".join(f"{d['name']}[{d['why']}] 기준 {d['asof']}" for d in gone[:2]))
     if any(d["tier"] <= 2 for d in show):
-        L.append("  - ⚠ 위치가 가깝다는 사실일 뿐 수익 근거가 아니다. 구역 경계는 지번으로 토지이음·고시 도면에서 확인할 것(읍면동 일치도 구역 밖일 수 있다). "
+        L.append("  - ⚠ 위치가 가깝다는 사실일 뿐 수익 근거가 아니다. 구역 안인지는 아래 🗺 토지이용계획 줄(감정평가서에 옮겨 적힌 토지이용계획확인 내용)과 대조해 쓸 것 — 거기에 해당 사업 구역 지정이 없으면 '구역 지정 확인 안 됨', 있으면 원문을 인용한다(읍면동 일치만으로 구역 안이라고 쓰지 않는다). "
                  "구역 안이면 지구지정 뒤 취득분은 개발이익이 배제된 보상가가 기준일 수 있고, 토지거래허가구역이면 압류재산 공매 낙찰은 허가 면제로 읽히나(시행령 제11조제3항제12호) 되팔 때 매수인에게 허가가 필요할 수 있다.")
     return L
 
@@ -363,6 +371,7 @@ def block_A(i, it, today):
     L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:120]}」"
              + (" → 자연림 기재(그냥 산일 가능성)" if it.get("natural_hint") else ""))
     L += appr_lines(it)
+    L += landuse_block(it)
     if any("현황은 전·답" in m or "현황은 전" in m for _, m in it.get("appr_flags") or []):
         L.append("- ⚠ 지목은 농지가 아니지만 감정평가서상 현황이 전·답(경작 중) — 농지법은 지목과 무관하게 실제 경작지를 농지로 보므로 농지취득자격증명이 필요할 수 있다. 관할 읍·면·동에 확인 전에는 위험 높음")
     if it.get("bad_exit"):
@@ -464,6 +473,7 @@ def block_D(i, it, today):
     kv = it.get("kv", {})
     L.append(f"- 감정평가서 요약: 이용상태 「{kv.get('이용상태', '-')[:80]}」 / 주위 「{kv.get('위치 및 주위환경', '-')[:100]}」")
     L += appr_lines(it)
+    L += landuse_block(it)
     L.append("- 📷 사진·도면 판단: ⟪감정평가서·온비드 사진을 보고: 실제 쓰이는 땅/건물인지, 출입·경계·점유 흔적, 공실 여부⟫")
     L += _media_lines(it)
     L.append("- 💰 출구: ⟪되팔 상대(이웃 땅 주인·공유자·세입자 등)와 근거 시세, 건물이면 같은 동네 월세 1~2건(WebSearch) 확인 결과. 근거가 없으면 '시세 확인 필요'⟫")
