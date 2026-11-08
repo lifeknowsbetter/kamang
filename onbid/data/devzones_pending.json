@@ -1,6 +1,52 @@
 {
  "schema": 1,
  "built": "2026-10-18",
- "note": "미검증 후보 목록(현재 비어 있음). 새 후보는 여기에 넣고 일요일 공부 루틴이 확인해 devzones.json으로 옮긴다.",
- "entries": []
+ "note": "미검증 후보 목록. 새 후보는 여기에 넣고 일요일 공부 루틴이 확인해 devzones.json으로 옮긴다.",
+ "entries": [
+  {
+   "id": "housing-uijeongbu-darakwon",
+   "name": "의정부다락원 신규 공공택지(후보지)",
+   "kind": "신도시·공공주택지구",
+   "stage": "계획",
+   "sido": "경기도",
+   "sgg": [
+    "의정부시"
+   ],
+   "investor": "국토교통부·LH",
+   "scale": "약 2,600가구(보도 1곳, 미확인)",
+   "schedule": "2026-10-29 후보지 발표, 2030년 내 착공 목표",
+   "summary": "2026-10-29 수도권 신규 택지 후보지 6곳 중 하나. 주한미군 반환공여지 캠프잭슨을 포함한다고 보도됐다. 의정부시는 2026-03-31 대웅 계열 개발사와 캠프잭슨 미래산업 거점 MOU를 맺었고 시의회는 자족용지(도시첨단산단 중복 지정) 확보를 요구했다. 읍면동(호원동 일대로 보이나 미확인)과 가구 수 재확인 필요.",
+   "asof": "2026-10",
+   "sources": [
+    "https://www.wikitree.co.kr/articles/1172230",
+    "https://www.ytn.co.kr/_ln/0102_202610291141042092",
+    "https://www.kyeonggi.com/article/20260331580499"
+   ],
+   "confidence": "low",
+   "status": "pending",
+   "pending_reason": "읍면동 위치·가구 수 출처 미확인"
+  },
+  {
+   "id": "housing-goyang-daegok-expansion",
+   "name": "고양대곡지식융합 확장 신규 공공택지(후보지)",
+   "kind": "신도시·공공주택지구",
+   "stage": "계획",
+   "sido": "경기도",
+   "sgg": [
+    "고양시 덕양구"
+   ],
+   "investor": "국토교통부·LH",
+   "scale": "약 4,000가구(보도)",
+   "schedule": "2026-10-29 후보지 발표. 기존 고양대곡지식융합지구(고양시 대장동 일원)는 2026-09-22 지구지정(국토부 고시 제2026-502호), 2027 지구계획 승인 목표",
+   "summary": "기존 고양대곡지식융합 공공주택지구(약 9,400가구)를 넓히는 후보지로 보도됐다. 확장 부지가 기존 지구의 어느 쪽인지, 읍면동은 확인하지 못했다. 기존 지구 자체를 devzones에 넣을지도 함께 판단 필요.",
+   "asof": "2026-10",
+   "sources": [
+    "https://www.ytn.co.kr/_ln/0102_202610291141042092",
+    "https://biz.newdaily.co.kr/site/data/html/2026/09/21/2026092100113.html"
+   ],
+   "confidence": "low",
+   "status": "pending",
+   "pending_reason": "확장 부지 위치(읍면동) 미확인, sgg 구 단위 표기 미확인"
+  }
+ ]
 }
